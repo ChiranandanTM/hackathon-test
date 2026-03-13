@@ -10,12 +10,14 @@ from app.database import initialize_database
 def _build_allowed_origins() -> list[str]:
     """Return local and production origins, with optional env override."""
     base_origins = [
-        "http://localhost:5173",
-        "http://localhost:5175",
         "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5175",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
         "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
         "https://hackathon-hack-1.web.app",
         "https://hackathon-hack-1.firebaseapp.com",
     ]
@@ -38,20 +40,22 @@ app.add_middleware(
     # Keep local dev origins and include Firebase Hosting domains for production.
     allow_origins=_build_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
     print("\n" + "="*60)
-    print("🛡️  AgentGuard API - Starting Up")
+    print("[SHIELD] AgentGuard API - Starting Up")
     print("="*60)
     initialize_database()
-    print("✓ API ready to receive requests")
-    print(f"📚 API Docs: http://localhost:8000/docs")
-    print(f"🔌 Backend: http://localhost:8000")
+    print("[OK] API ready to receive requests")
+    print(f"[DOCS] API Docs: http://localhost:8000/docs")
+    print(f"[SERVER] Backend: http://localhost:8000")
     print("="*60 + "\n")
 
 app.include_router(tx_router)
@@ -205,4 +209,11 @@ def judge_requestly_proof():
             "Show generated workspace file in requestly_workspaces/",
         ],
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    import os
+    port = int(os.getenv("API_PORT", "8000"))
+    uvicorn.run(app, host="127.0.0.1", port=port)
 

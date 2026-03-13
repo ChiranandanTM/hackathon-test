@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 
 export default function MetricTerminal() {
   const [metrics, setMetrics] = useState([]);
@@ -7,79 +9,56 @@ export default function MetricTerminal() {
   const [reportData, setReportData] = useState(null);
 
   useEffect(() => {
-    async function fetchMetrics() {
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/judge/scorecard`
-        );
-        const data = await res.json();
-        setReportData(data);
+    const unsubscribe = onSnapshot(collection(db, "intercepts"), (snapshot) => {
+      const docs = snapshot.docs.map((doc) => doc.data());
+      const attacksIntercepted = docs.length;
+      const rewritesGenerated = docs.filter((doc) => doc.safe_tx).length;
+      const humanDecisions = docs.filter(
+        (doc) => doc.decision === "approved" || doc.decision === "rejected"
+      ).length;
 
-        // Transform data into terminal lines
-        const lines = [
-          { type: "header", text: "$ judge_report --format=audit --live" },
-          { type: "output", text: "Connecting to AgentGuard metrics..." },
-          { type: "blank", text: "" },
-          {
-            type: "metric",
-            text: `✓ Transactions intercepted: ${data.total_intercepted || 0}`,
-          },
-          {
-            type: "metric",
-            text: `✓ Rewrites generated: ${data.total_rewrites || 0}`,
-          },
-          {
-            type: "metric",
-            text: `✓ Human approvals enforced: ${data.total_approvals || 0}`,
-          },
-          {
-            type: "metric",
-            text: `✓ On-chain records logged: ${data.total_on_chain || 0}`,
-          },
-          {
-            type: "metric",
-            text: `✓ Requestly workflows validated: ${data.requestly_passed || 0}/${data.requestly_total || 5}`,
-          },
-          { type: "blank", text: "" },
-          {
-            type: "score",
-            text: `SECURITY SCORE: ${Math.min(100, Math.round((data.total_intercepted || 0) * 2))}${Math.min(100, Math.round((data.total_intercepted || 0) * 2)) >= 98 ? " ⭐ EXCELLENT" : ""}`,
-          },
-          { type: "blank", text: "" },
-          {
-            type: "footer",
-            text: "$ Status: All systems operational | Audit trails verified | Judge ready",
-          },
-        ];
-        setMetrics(lines);
-        setScore(Math.min(100, Math.round((data.total_intercepted || 0) * 2)));
-      } catch (err) {
-        console.error("Failed to fetch metrics:", err);
-        // Fallback data
-        const lines = [
-          { type: "header", text: "$ judge_report --format=audit --live" },
-          { type: "output", text: "Connecting to AgentGuard metrics..." },
-          { type: "blank", text: "" },
-          { type: "metric", text: "✓ Transactions intercepted: 47" },
-          { type: "metric", text: "✓ Rewrites generated: 31" },
-          { type: "metric", text: "✓ Human approvals enforced: 47" },
-          { type: "metric", text: "✓ On-chain records logged: 47" },
-          { type: "metric", text: "✓ Requestly workflows validated: 5/5" },
-          { type: "blank", text: "" },
-          { type: "score", text: "SECURITY SCORE: 98 ⭐ EXCELLENT" },
-          { type: "blank", text: "" },
-          {
-            type: "footer",
-            text: "$ Status: All systems operational | Audit trails verified | Judge ready",
-          },
-        ];
-        setMetrics(lines);
-        setScore(98);
-      }
+      const data = {
+        attacks_intercepted: attacksIntercepted,
+        rewrites_generated: rewritesGenerated,
+        human_decisions: humanDecisions,
+      };
+      setReportData(data);
+
+      const lines = [
+        { type: "header", text: "$ judge_report --format=audit --live" },
+        { type: "output", text: "Listening to Firestore intercepts collection..." },
+        { type: "blank", text: "" },
+        {
+          type: "metric",
+          text: `✓ attacks_intercepted: ${attacksIntercepted}`,
+        },
+        {
+          type: "metric",
+          text: `✓ rewrites_generated: ${rewritesGenerated}`,
+        },
+        {
+          type: "metric",
+          text: `✓ human_decisions: ${humanDecisions}`,
+        },
+        { type: "blank", text: "" },
+        {
+          type: "score",
+          text: `SECURITY SCORE: ${Math.min(100, Math.round(attacksIntercepted * 2))}${
+            Math.min(100, Math.round(attacksIntercepted * 2)) >= 98 ? " ⭐ EXCELLENT" : ""
+          }`,
+        },
+        { type: "blank", text: "" },
+        {
+          type: "footer",
+          text: "$ Status: Live Firestore counters active",
+        },
+      ];
+      setMetrics(lines);
+      setScore(Math.min(100, Math.round(attacksIntercepted * 2)));
       setIsAnimating(false);
-    }
+    });
 
-    fetchMetrics();
+    return () => unsubscribe();
   }, []);
 
   return (

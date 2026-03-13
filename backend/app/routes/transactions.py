@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
+from typing import Optional, Any
 from datetime import datetime, timezone
 from bson import ObjectId
+from firebase_admin import firestore
 
 from app.database import transactions_collection, STORAGE_MODE
+
 from app.services.risk_detector import detect_risks
 from app.services.llm_service import analyze_transaction
 from app.services.tx_rewriter import rewrite_safe
@@ -18,15 +20,28 @@ router = APIRouter()
 
 
 class TransactionRequest(BaseModel):
-    from_address: str
-    to_address: str
-    function_name: str
-    args: dict
-    value: float = 0
+    model_config = ConfigDict(extra="allow")
+
+    from_address: Optional[str] = None
+    to_address: Optional[str] = None
+    function_name: Optional[str] = None
+    args: Optional[dict] = None
+    value: Optional[float] = 0
     user_intent: Optional[str] = "Unknown"
     wallet_balance: Optional[float] = 0
-
-
+    tx_type: Optional[str] = None
+    spender: Optional[str] = None
+    amount: Optional[str] = None
+    token: Optional[str] = None
+    initiated_by: Optional[str] = None
+    attack_simulation: Optional[bool] = False
+    attack_type: Optional[str] = None
+    to: Optional[str] = None
+    contract: Optional[str] = None
+    method: Optional[str] = None
+    params: Optional[dict] = None
+    gas_limit: Optional[str] = None
+    
 class ActionRequest(BaseModel):
     reason: Optional[str] = ""
 
@@ -37,11 +52,62 @@ def serialize_doc(doc):
 
 
 def _make_id_query(tx_id: str) -> dict:
-    """Create proper ID query for both MongoDB and file-based storage"""
-    if STORAGE_MODE == "mongodb":
-        return {"_id": ObjectId(tx_id)}
+    """Create ID query for active storage backend."""
+    return {"_id": tx_id}
+
+
+def _normalize_intercept_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    tx_type = payload.get("tx_type")
+
+    if tx_type == "approve":
+        function_name = "approve"
+        args = {
+            "spender": payload.get("spender", ""),
+            "amount": payload.get("amount", "0"),
+        }
+        to_address = payload.get("spender", payload.get("to_address", ""))
+    elif tx_type == "transfer":
+        function_name = "transfer"
+        args = {
+            "to": payload.get("to", ""),
+            "amount": payload.get("amount", "0"),
+        }
+        to_address = payload.get("to", payload.get("to_address", ""))
+    elif tx_type == "contract_call":
+        function_name = payload.get("method", "contract_call")
+        args = payload.get("params") or {}
+        to_address = payload.get("contract", payload.get("to_address", ""))
     else:
-        return {"_id": tx_id}
+        function_name = payload.get("function_name", "unknown")
+        args = payload.get("args") or {}
+        to_address = payload.get("to_address", "")
+        if function_name == "approve":
+            tx_type = "approve"
+        elif function_name in ("transfer", "transferFrom"):
+            tx_type = "transfer"
+        else:
+            tx_type = "contract_call"
+
+    attack_type = payload.get("attack_type") or "unknown"
+    user_intent = payload.get("user_intent")
+    if not user_intent:
+        user_intent = f"Simulated {attack_type} triggered by {payload.get('initiated_by', 'user')}"
+
+    return {
+        "tx_type": tx_type,
+        "from_address": payload.get("from_address") or "0xSIMULATED_USER",
+        "to_address": to_address,
+        "function_name": function_name,
+        "args": args,
+        "value": payload.get("value", 0),
+        "token": payload.get("token"),
+        "wallet_balance": payload.get("wallet_balance", 0),
+        "user_intent": user_intent,
+        "initiated_by": payload.get("initiated_by", "user"),
+        "attack_simulation": bool(payload.get("attack_simulation", False)),
+        "attack_type": attack_type,
+        "gas_limit": payload.get("gas_limit"),
+    }
 
 
 def build_decision_context(tx_dict: dict, safe_tx: dict, risk_report: dict, llm_result: dict) -> dict:
@@ -75,9 +141,10 @@ def _decision_quality(record: dict) -> str:
 
 @router.post("/intercept")
 async def intercept_transaction(tx: TransactionRequest):
-    # FIXED: Comprehensive try/except wrapper for all service calls
+    # Comprehensive try/except wrapper for all service calls
     try:
-        tx_dict = tx.model_dump()
+        incoming = tx.model_dump(exclude_none=True)
+        tx_dict = _normalize_intercept_payload(incoming)
 
         # Detect risks - has its own fallback
         try:
@@ -95,10 +162,10 @@ async def intercept_transaction(tx: TransactionRequest):
 
         # LLM analysis - has its own fallback
         try:
-            llm_result = analyze_transaction(tx_dict, risk_report, tx.user_intent)
+            llm_result = analyze_transaction(tx_dict, risk_report, tx_dict.get("user_intent"))
         except Exception as e:
             llm_result = {
-                "intent_summary": tx.user_intent or "Unknown",
+                "intent_summary": tx_dict.get("user_intent") or "Unknown",
                 "risk_explanation": "AI analysis unavailable",
                 "safe_action": "reject",
                 "safe_params": {},
@@ -118,18 +185,34 @@ async def intercept_transaction(tx: TransactionRequest):
             decision_context = build_decision_context(tx_dict, safe_tx, risk_report, llm_result)
         except Exception as e:
             decision_context = {
-                "ai_tried": tx.user_intent or "Unknown",
+                "ai_tried": tx_dict.get("user_intent") or "Unknown",
                 "why_risky": "Unable to determine",
                 "agentguard_proposes": "Review manually",
                 "human_choice_prompt": "Approve or reject this transaction.",
             }
 
+        tx_id = str(ObjectId())
+        why_risky = decision_context.get("why_risky", "Risk context unavailable")
+
         record = {
+            "_id": tx_id,
+            "tx_id": tx_id,
+            "tx_type": tx_dict.get("tx_type"),
+            "attack_type": tx_dict.get("attack_type"),
+            "risk_level": risk_report.get("risk_level"),
+            "risk_score": risk_report.get("risk_score"),
+            "policy_action": risk_report.get("policy_action"),
+            "why_risky": why_risky,
+            "safe_tx": safe_tx,
+            "ai_tried": decision_context.get("ai_tried"),
+            "agentguard_proposes": decision_context.get("agentguard_proposes"),
+            "attack_simulation": bool(tx_dict.get("attack_simulation", False)),
+            "created_at": firestore.SERVER_TIMESTAMP,
             "original_tx": tx_dict,
             "risk_report": risk_report,
             "llm_analysis": llm_result,
-            "safe_tx": safe_tx,
             "decision_context": decision_context,
+            "decision": None,
             "status": "pending",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
@@ -137,7 +220,10 @@ async def intercept_transaction(tx: TransactionRequest):
         try:
             result = transactions_collection.insert_one(record)
             record["_id"] = str(result.inserted_id)
+            record["tx_id"] = str(result.inserted_id)
+            print(f"[TRANSACTION] New transaction saved: {record['_id']} to {STORAGE_MODE}")
         except Exception as e:
+            print(f"[ERROR] Failed to save transaction: {str(e)[:100]}")
             raise HTTPException(status_code=500, detail="Failed to save transaction to database")
 
         # Log on-chain - has its own fallback
@@ -145,7 +231,7 @@ async def intercept_transaction(tx: TransactionRequest):
             onchain_intercept = log_interception_onchain(
                 record["_id"],
                 risk_report.get("risk_level", "unknown"),
-                llm_result.get("intent_summary", tx.user_intent),
+                llm_result.get("intent_summary", tx_dict.get("user_intent")),
             )
             onchain_rewrite = log_rewrite_onchain(record["_id"], safe_tx.get("rewrite_reason", ""))
         except Exception as e:
@@ -170,9 +256,12 @@ async def intercept_transaction(tx: TransactionRequest):
             "tx_id": record["_id"],
             "original_tx": tx_dict,
             "risk_report": risk_report,
+            "risk_score": risk_report.get("risk_score"),
+            "risk_level": risk_report.get("risk_level"),
             "llm_analysis": llm_result,
             "safe_tx": safe_tx,
             "decision_context": decision_context,
+            "why_risky": why_risky,
             "onchain": {
                 "interception": onchain_intercept,
                 "rewrite": onchain_rewrite,
@@ -183,32 +272,8 @@ async def intercept_transaction(tx: TransactionRequest):
     except HTTPException:
         raise
     except Exception as e:
-        # FIXED: Catch-all for any unexpected error
+        # Catch-all for any unexpected error
         raise HTTPException(status_code=500, detail=f"Unexpected error during transaction interception: {str(e)[:100]}")
-
-    transactions_collection.update_one(
-        {"_id": ObjectId(record["_id"])},
-        {
-            "$set": {
-                "onchain.interception": onchain_intercept,
-                "onchain.rewrite": onchain_rewrite,
-            }
-        },
-    )
-
-    return {
-        "tx_id": record["_id"],
-        "original_tx": tx_dict,
-        "risk_report": risk_report,
-        "llm_analysis": llm_result,
-        "safe_tx": safe_tx,
-        "decision_context": decision_context,
-        "onchain": {
-            "interception": onchain_intercept,
-            "rewrite": onchain_rewrite,
-        },
-        "status": "pending",
-    }
 
 
 @router.post("/approve/{tx_id}")
@@ -224,10 +289,14 @@ async def approve_transaction(tx_id: str):
     decision_onchain = log_decision_onchain(tx_id, "approved", "Approved safe transaction")
 
     try:
+        decided_variant = doc.get("safe_tx") or "safe_tx"
         result = transactions_collection.update_one(
             _make_id_query(tx_id),
             {
                 "$set": {
+                    "decision": "approved",
+                    "decided_at": firestore.SERVER_TIMESTAMP,
+                    "decided_variant": decided_variant,
                     "status": "approved",
                     "approved_variant": "safe_tx",
                     "resolved_at": datetime.now(timezone.utc).isoformat(),
@@ -259,6 +328,9 @@ async def reject_transaction(tx_id: str, body: ActionRequest = ActionRequest()):
             _make_id_query(tx_id),
             {
                 "$set": {
+                    "decision": "rejected",
+                    "decided_at": firestore.SERVER_TIMESTAMP,
+                    "decided_variant": "rejected",
                     "status": "rejected",
                     "reject_reason": reject_reason,
                     "resolved_at": datetime.now(timezone.utc).isoformat(),
@@ -323,59 +395,49 @@ async def get_audit_evidence(tx_id: str):
 
 @router.get("/judge/scorecard")
 async def judge_scorecard():
-    docs = list(transactions_collection.find().sort("timestamp", -1).limit(200))
+    docs = list(transactions_collection.find())
     total = len(docs)
-
-    approved = sum(1 for d in docs if d.get("status") == "approved")
-    rejected = sum(1 for d in docs if d.get("status") == "rejected")
-    pending = sum(1 for d in docs if d.get("status") == "pending")
+    approved = sum(1 for d in docs if d.get("decision") == "approved")
+    rejected = sum(1 for d in docs if d.get("decision") == "rejected")
+    pending = total - approved - rejected
+    rewrites = sum(1 for d in docs if d.get("safe_tx") is not None)
+    human_decisions = approved + rejected
 
     critical_or_high = sum(
         1
         for d in docs
-        if d.get("risk_report", {}).get("risk_level") in ("critical", "high")
-    )
-
-    blocked_or_safeguarded = sum(
-        1
-        for d in docs
-        if _decision_quality(d) in ("dangerous_tx_blocked", "safe_rewrite_approved")
-    )
-
-    onchain_intercepts = sum(
-        1 for d in docs if d.get("onchain", {}).get("interception", {}).get("recorded")
-    )
-    onchain_decisions = sum(
-        1 for d in docs if d.get("onchain", {}).get("decision", {}).get("recorded")
+        if (d.get("risk_level") or d.get("risk_report", {}).get("risk_level")) in ("critical", "high")
     )
 
     avg_risk_score = (
         round(
-            sum(d.get("risk_report", {}).get("risk_score", 0) for d in docs) / total,
+            sum(
+                d.get("risk_score")
+                if d.get("risk_score") is not None
+                else d.get("risk_report", {}).get("risk_score", 0)
+                for d in docs
+            ) / total,
             2,
         )
         if total
         else 0
     )
 
-    # Calculate rewrites (safe_tx were generated)
-    rewrites = sum(
-        1 for d in docs 
-        if d.get("safe_tx") is not None and d.get("safe_tx").get("to_address")
-    )
-
     return {
         "project": "AgentGuard",
+        "attacks_intercepted": total,
+        "rewrites_generated": rewrites,
+        "human_decisions": human_decisions,
         "total_intercepted": total,
         "total_approvals": approved,
         "total_rejections": rejected,
         "total_pending": pending,
         "total_rewrites": rewrites,
-        "total_on_chain": onchain_decisions,
-        "requestly_total": 5,
-        "requestly_passed": 5,
+        "total_on_chain": 0,
+        "requestly_total": 0,
+        "requestly_passed": 0,
         "high_or_critical_detected": critical_or_high,
-        "protected_outcomes": blocked_or_safeguarded,
+        "protected_outcomes": human_decisions,
         "average_risk_score": avg_risk_score,
         "summary": {
             "total_interceptions": total,
@@ -383,16 +445,16 @@ async def judge_scorecard():
             "rejected": rejected,
             "pending": pending,
             "high_or_critical_detected": critical_or_high,
-            "protected_outcomes": blocked_or_safeguarded,
+            "protected_outcomes": human_decisions,
             "average_risk_score": avg_risk_score,
         },
         "tamper_proof_audit": {
-            "onchain_interception_records": onchain_intercepts,
-            "onchain_decision_records": onchain_decisions,
+            "onchain_interception_records": 0,
+            "onchain_decision_records": 0,
         },
         "judge_notes": [
             "Human-in-the-loop approval enforced before execution",
             "Dangerous transactions are blocked or rewritten to safe alternatives",
-            "All decisions are auditable in database and optionally on-chain",
+            "All decisions are auditable in Firestore",
         ],
     }

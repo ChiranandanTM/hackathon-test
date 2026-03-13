@@ -1,0 +1,8 @@
+=== TEST START ===
+
+[TEST] Creating transaction...
+[TEST] Response code: 200
+[TEST] TX ID: 69b44aca46944b4941c9f716
+
+[TEST] Checking Firebase count...
+[TEST] Firebase has 5 documents

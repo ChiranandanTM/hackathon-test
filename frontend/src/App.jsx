@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { approveTransaction, rejectTransaction } from "./utils/api";
 import WalletConnect from "./components/WalletConnect";
 import DemoScenarios from "./components/DemoScenarios";
 import TransactionComparison from "./components/TransactionComparison";
@@ -9,6 +11,7 @@ import AttackStories from "./components/AttackStories";
 import EvidenceVault from "./components/EvidenceVault";
 import MetricTerminal from "./components/MetricTerminal";
 import RequestlyVisualizer from "./components/RequestlyVisualizer";
+import { db } from "./firebase";
 
 export default function App() {
   const [wallet, setWallet] = useState(null);
@@ -16,6 +19,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("demo");
   const [notification, setNotification] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [threatQueue, setThreatQueue] = useState([]);
+  const [threatDecisionLoading, setThreatDecisionLoading] = useState(false);
+  const hasLoadedThreatStream = useRef(false);
+  const lastThreatId = useRef("");
+  const seenThreatIds = useRef(new Set());
 
   function showNotification(msg, type = "info") {
     setNotification({ msg, type });
@@ -36,6 +44,115 @@ export default function App() {
     );
   }
 
+  function handleThreatDetected(threat) {
+    const reason = threat?.reason ? ` | ${String(threat.reason).slice(0, 90)}` : "";
+    showNotification(
+      `Threat detected ${String(threat?.riskLevel || "unknown").toUpperCase()} (${threat?.riskScore ?? "N/A"}) for ${threat?.attackType || "attack"}${reason}`,
+      "error"
+    );
+  }
+
+  function _isPendingThreat(data) {
+    const decision = data?.decision;
+    const status = String(data?.status || "pending").toLowerCase();
+    const riskLevel = String(data?.risk_level || data?.risk_report?.risk_level || "").toLowerCase();
+    const isPending = !decision && status === "pending";
+    const isDanger = riskLevel === "critical" || riskLevel === "high";
+    return isPending && isDanger;
+  }
+
+  async function handleRealtimeDecision(action, txId) {
+    if (!txId || threatDecisionLoading) {
+      return;
+    }
+    setThreatDecisionLoading(true);
+    try {
+      if (action === "approve") {
+        await approveTransaction(txId);
+        showNotification(`Threat ${txId} approved as safe rewrite`, "success");
+      } else {
+        await rejectTransaction(txId, "User rejected after realtime threat alert");
+        showNotification(`Threat ${txId} rejected and blocked`, "error");
+      }
+      setThreatQueue((prev) => prev.filter((item) => item.tx_id !== txId));
+    } catch (error) {
+      showNotification(`Decision failed: ${error.message || "Unknown error"}`, "error");
+    } finally {
+      setThreatDecisionLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const threatQuery = query(collection(db, "intercepts"), orderBy("created_at", "desc"), limit(1));
+    const unsubscribe = onSnapshot(threatQuery, (snapshot) => {
+      if (snapshot.empty) {
+        return;
+      }
+
+      const doc = snapshot.docs[0];
+      const data = doc.data() || {};
+      const riskLevel = String(data.risk_level || data?.risk_report?.risk_level || "").toLowerCase();
+
+      if (!hasLoadedThreatStream.current) {
+        hasLoadedThreatStream.current = true;
+        lastThreatId.current = doc.id;
+        return;
+      }
+
+      if (doc.id === lastThreatId.current) {
+        return;
+      }
+      lastThreatId.current = doc.id;
+
+      if (riskLevel === "critical" || riskLevel === "high") {
+        showNotification(
+          `Realtime alert: ${riskLevel.toUpperCase()} threat intercepted (${data.attack_type || "unknown"})`,
+          "error"
+        );
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const inboxQuery = query(collection(db, "intercepts"), orderBy("created_at", "desc"), limit(30));
+    const unsubscribe = onSnapshot(inboxQuery, (snapshot) => {
+      const docs = snapshot.docs.map((doc) => ({ _id: doc.id, ...doc.data() }));
+
+      const pendingThreats = docs
+        .filter((doc) => _isPendingThreat(doc))
+        .map((doc) => ({
+          tx_id: doc.tx_id || doc._id,
+          attack_type: doc.attack_type || "unknown",
+          risk_level: doc.risk_level || doc?.risk_report?.risk_level || "unknown",
+          risk_score: doc.risk_score ?? doc?.risk_report?.risk_score ?? "N/A",
+          why_risky: doc.why_risky || doc?.decision_context?.why_risky || "Threat details unavailable",
+          ai_tried: doc.ai_tried || doc?.decision_context?.ai_tried || "Unknown intent",
+          agentguard_proposes:
+            doc.agentguard_proposes || doc?.decision_context?.agentguard_proposes || "Review manually",
+          initiated_by: doc?.original_tx?.initiated_by || doc?.initiated_by || "unknown",
+          created_at: doc.created_at,
+        }));
+
+      setThreatQueue(pendingThreats);
+
+      for (const threat of pendingThreats) {
+        if (!seenThreatIds.current.has(threat.tx_id)) {
+          seenThreatIds.current.add(threat.tx_id);
+          showNotification(
+            `Incoming realtime threat: ${String(threat.risk_level).toUpperCase()} (${threat.attack_type})`,
+            "error"
+          );
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const activeThreat = threatQueue[0] || null;
+
   return (
     <div className="min-h-screen bg-guard-dark">
       {/* Splash Screen */}
@@ -53,6 +170,63 @@ export default function App() {
           }`}
         >
           {notification.msg}
+        </div>
+      )}
+
+      {activeThreat && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-guard-danger/40 bg-guard-card p-5 space-y-4 shadow-2xl shadow-guard-danger/20">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-bold text-guard-danger">Realtime Threat Detected</h3>
+              <span className="text-xs px-2 py-1 rounded border border-guard-warning/40 text-guard-warning bg-guard-warning/10">
+                LIVE MITM ALERT
+              </span>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+                <div className="text-gray-400 text-xs">tx_id</div>
+                <div className="text-gray-200 font-mono break-all">{activeThreat.tx_id}</div>
+              </div>
+              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+                <div className="text-gray-400 text-xs">attack_type</div>
+                <div className="text-guard-danger font-semibold">{String(activeThreat.attack_type).toUpperCase()}</div>
+              </div>
+              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+                <div className="text-gray-400 text-xs">risk_level</div>
+                <div className="text-guard-warning font-semibold">{String(activeThreat.risk_level).toUpperCase()}</div>
+              </div>
+              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+                <div className="text-gray-400 text-xs">risk_score</div>
+                <div className="text-guard-warning font-semibold">{String(activeThreat.risk_score)}</div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-guard-danger/30 bg-guard-danger/10 p-3 text-sm text-gray-200">
+              <span className="text-guard-danger font-semibold">Attack Summary:</span> {activeThreat.why_risky}
+            </div>
+
+            <div className="rounded-lg border border-guard-safe/30 bg-guard-safe/10 p-3 text-sm text-gray-200">
+              <span className="text-guard-safe font-semibold">AgentGuard Proposes:</span> {activeThreat.agentguard_proposes}
+            </div>
+
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => handleRealtimeDecision("approve", activeThreat.tx_id)}
+                disabled={threatDecisionLoading}
+                className="px-4 py-2 rounded-lg border border-guard-safe/40 text-guard-safe hover:bg-guard-safe/10 disabled:opacity-60"
+              >
+                ✅ Accept Safe Rewrite
+              </button>
+              <button
+                onClick={() => handleRealtimeDecision("reject", activeThreat.tx_id)}
+                disabled={threatDecisionLoading}
+                className="px-4 py-2 rounded-lg border border-guard-danger/40 text-guard-danger hover:bg-guard-danger/10 disabled:opacity-60"
+              >
+                ❌ Reject & Block
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -121,7 +295,7 @@ export default function App() {
         {/* Tab Content */}
         {activeTab === "demo" && (
           <div className="space-y-8 animate-fade-in">
-            <DemoScenarios wallet={wallet} onResult={setResult} />
+            <DemoScenarios wallet={wallet} onResult={handleResult} onThreatDetected={handleThreatDetected} />
             <TransactionComparison result={result} onAction={(action) => {
               showNotification(
                 `Transaction ${action.action}: ${action.tx_id}`,

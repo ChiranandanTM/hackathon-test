@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
-import { fetchAuditLog, fetchAuditEvidence } from "../utils/api";
+import { useState, useEffect, useRef } from "react";
+import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { db } from "../firebase";
+import { fetchAuditEvidence } from "../utils/api";
 
 // FIXED: Added modal component for evidence details
 function EvidenceModal({ record, onClose }) {
@@ -134,32 +136,56 @@ export default function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(null); // FIXED: Added state for evidence modal
+  const [newIds, setNewIds] = useState([]);
+  const seenIdsRef = useRef(new Set());
 
   useEffect(() => {
-    loadAudit();
+    const q = query(collection(db, "intercepts"), orderBy("created_at", "desc"), limit(50));
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const incoming = snapshot.docs.map((doc) => ({ _id: doc.id, ...doc.data() }));
+        const incomingIds = new Set(incoming.map((doc) => doc._id));
+
+        if (seenIdsRef.current.size > 0) {
+          const addedNow = incoming
+            .map((doc) => doc._id)
+            .filter((id) => !seenIdsRef.current.has(id));
+
+          if (addedNow.length > 0) {
+            setNewIds((prev) => Array.from(new Set([...prev, ...addedNow])));
+            setTimeout(() => {
+              setNewIds((prev) => prev.filter((id) => !addedNow.includes(id)));
+            }, 4000);
+          }
+        }
+
+        seenIdsRef.current = incomingIds;
+        setRecords(incoming);
+        setError(null);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Failed to subscribe audit log:", err);
+        setError(err.message || "Failed to subscribe audit log");
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
 
-  async function loadAudit() {
-    setLoading(true);
-    setError(null); // FIXED: Added error state management
-
-    try {
-      const data = await fetchAuditLog();
-      
-      // FIXED: Validate response structure
-      if (!data || typeof data !== "object") {
-        throw new Error("Invalid response from server");
-      }
-      
-      const transactions = Array.isArray(data.transactions) ? data.transactions : [];
-      setRecords(transactions);
-    } catch (err) {
-      console.error("Failed to load audit log:", err);
-      setError(err.message || "Failed to load audit log");
-      setRecords([]);
-    } finally {
-      setLoading(false);
+  function formatTimestamp(record) {
+    if (record?.created_at?.toDate) {
+      return record.created_at.toDate().toLocaleString();
     }
+    if (record?.created_at?.seconds) {
+      return new Date(record.created_at.seconds * 1000).toLocaleString();
+    }
+    if (record?.timestamp) {
+      return new Date(record.timestamp).toLocaleString();
+    }
+    return "N/A";
   }
 
   function statusColor(status) {
@@ -215,13 +241,7 @@ export default function AuditLog() {
           <h2 className="text-2xl font-bold text-glow-cyan">📋 Audit Log</h2>
           <p className="text-xs text-gray-500 mt-1">{records.length} transaction(s) recorded</p>
         </div>
-        <button
-          onClick={loadAudit}
-          disabled={loading}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-guard-accent border border-guard-accent/30 hover:border-guard-accent/50 hover:bg-guard-accent/10 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          🔄 Refresh
-        </button>
+        <div className="text-xs text-guard-accent">Live via Firestore onSnapshot</div>
       </div>
 
       {/* FIXED: Show error message if load failed */}
@@ -241,25 +261,34 @@ export default function AuditLog() {
           {records.map((record, idx) => {
             // FIXED: Added null safety for record properties
             const txId = record?._id;
-            const timestamp = record?.timestamp;
-            const status = record?.status || "pending";
-            const riskLevel = record?.risk_report?.risk_level || "medium";
-            const userIntent = record?.original_tx?.user_intent || "Unknown intent";
-            const funcName = record?.original_tx?.function_name || "unknown";
+            const status = record?.decision || record?.status || "pending";
+            const riskLevel = record?.risk_level || record?.risk_report?.risk_level || "medium";
+            const userIntent = record?.original_tx?.user_intent || record?.ai_tried || "Unknown intent";
+            const funcName = record?.original_tx?.function_name || record?.tx_type || "unknown";
             const toAddr = record?.original_tx?.to_address || "unknown";
-            const riskExplain = record?.llm_analysis?.risk_explanation || "";
+            const riskExplain = record?.why_risky || record?.llm_analysis?.risk_explanation || "";
+            const isNew = txId && newIds.includes(txId);
             
             return (
               <div
                 key={txId || idx}
-                className="card-glow group bg-guard-card border border-guard-accent/20 hover:border-guard-accent/40 rounded-xl p-5 space-y-3 transition-all duration-300 animate-fade-in"
+                className={`card-glow group bg-guard-card border rounded-xl p-5 space-y-3 transition-all duration-500 animate-fade-in ${
+                  isNew
+                    ? "border-yellow-400 shadow-lg shadow-yellow-500/30"
+                    : "border-guard-accent/20 hover:border-guard-accent/40"
+                }`}
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="text-xs text-gray-500 font-mono bg-guard-dark/30 px-2.5 py-1.5 rounded">
-                    {timestamp ? new Date(timestamp).toLocaleString() : "N/A"}
+                    {formatTimestamp(record)}
                   </div>
                   <div className="flex items-center gap-2">
+                    {isNew && (
+                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-yellow-500/20 text-yellow-300 border border-yellow-400/40">
+                        NEW
+                      </span>
+                    )}
                     <span
                       className={`text-xs font-bold px-2.5 py-1.5 rounded ${riskColor(riskLevel)}`}
                     >

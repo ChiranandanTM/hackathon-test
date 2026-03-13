@@ -1,7 +1,24 @@
 // FIXED: Created centralized API configuration to replace hardcoded URLs
 
+const defaultBaseUrl = (() => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://localhost:8000";
+    }
+    // In deployed hosting, route to backend rewrite (e.g., Firebase /api).
+    return "/api";
+  }
+
+  return "http://localhost:8000";
+})();
+
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+  BASE_URL: defaultBaseUrl,
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 2,
 };

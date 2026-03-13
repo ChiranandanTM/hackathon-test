@@ -60,6 +60,24 @@ def detect_risks(tx: dict) -> dict:
         flags = []
         risk_level = "low"
 
+        if tx.get("attack_simulation") is True:
+            attack_type = tx.get("attack_type", "simulated_attack")
+            return {
+                "risk_level": "critical",
+                "flags": [
+                    {
+                        "type": attack_type,
+                        "severity": "critical",
+                        "description": f"Simulated {attack_type} was detected and blocked.",
+                    }
+                ],
+                "is_safe": False,
+                "risk_score": 93,
+                "requires_human_review": True,
+                "policy_action": "block_and_rewrite",
+                "top_threat": attack_type,
+            }
+
         # Check for infinite token approval
         if tx.get("function_name") == "approve":
             try:

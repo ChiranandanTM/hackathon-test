@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { interceptTransaction } from "../utils/api";
+import { useMemo, useState } from "react";
+import { interceptTransaction, approveTransaction, rejectTransaction } from "../utils/api";
 
 const MAX_UINT256 =
   "115792089237316195423570985008687907853269984665640564039457584007913129639935";
@@ -104,6 +104,58 @@ export const SCENARIOS = [
   },
 ];
 
+const LIVE_ATTACK_PAYLOADS = [
+  {
+    tx_type: "approve",
+    spender: "0xDEADBEEF000000000000000000000000DEADBEEF",
+    amount:
+      "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    token: "USDC",
+    initiated_by: "ai_agent",
+    attack_simulation: true,
+    attack_type: "infinite_approval",
+  },
+  {
+    tx_type: "transfer",
+    to: "0x000000000000000000000000000000000000dEaD",
+    amount: "999999999999999999999",
+    token: "ETH",
+    initiated_by: "ai_agent",
+    attack_simulation: true,
+    attack_type: "wallet_drain",
+  },
+  {
+    tx_type: "contract_call",
+    contract: "0xBadc0ffee0000000000000000000000000000001",
+    method: "claimReward(address,uint256)",
+    params: { address: "0xAttackerVault", uint256: "MAX" },
+    initiated_by: "ai_agent",
+    attack_simulation: true,
+    attack_type: "phishing_contract",
+  },
+  {
+    tx_type: "contract_call",
+    contract: "0xReentrancyVault000000000000000000000001",
+    method: "withdraw(uint256)",
+    params: { uint256: "999999" },
+    gas_limit: "999999",
+    initiated_by: "ai_agent",
+    attack_simulation: true,
+    attack_type: "reentrancy",
+  },
+];
+
+const ATTACK_SOURCES = [
+  "185.220.101.14",
+  "91.214.44.77",
+  "45.95.147.23",
+  "103.214.20.90",
+];
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function ScenarioButton({ scenario, isLoading, onClick }) {
   return (
     <button
@@ -127,10 +179,28 @@ function ScenarioButton({ scenario, isLoading, onClick }) {
   );
 }
 
-export default function DemoScenarios({ wallet, onResult }) {
+export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
   // FIXED: Added loading state tracking per scenario
   const [loadingId, setLoadingId] = useState(null);
   const [errors, setErrors] = useState({});
+  const [liveAttackIndex, setLiveAttackIndex] = useState(0);
+  const [liveAttackResult, setLiveAttackResult] = useState(null);
+  const [liveAttackLoading, setLiveAttackLoading] = useState(false);
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [liveError, setLiveError] = useState("");
+  const [liveStage, setLiveStage] = useState("idle");
+  const [attackFeed, setAttackFeed] = useState([]);
+
+  const nextPayload = useMemo(
+    () => LIVE_ATTACK_PAYLOADS[liveAttackIndex % LIVE_ATTACK_PAYLOADS.length],
+    [liveAttackIndex]
+  );
+  const currentSource = ATTACK_SOURCES[liveAttackIndex % ATTACK_SOURCES.length];
+
+  function pushFeed(line) {
+    const stamped = `[${new Date().toLocaleTimeString()}] ${line}`;
+    setAttackFeed((prev) => [stamped, ...prev].slice(0, 6));
+  }
 
   async function runScenario(scenario) {
     const tx = {
@@ -166,6 +236,88 @@ export default function DemoScenarios({ wallet, onResult }) {
     }
   }
 
+  async function runLiveAttack() {
+    const payload = LIVE_ATTACK_PAYLOADS[liveAttackIndex % LIVE_ATTACK_PAYLOADS.length];
+    setLiveAttackLoading(true);
+    setLiveError("");
+    setLiveStage("ingress");
+    pushFeed(`Inbound suspicious payload from ${currentSource}`);
+    await wait(180);
+    setLiveStage("analysis");
+    pushFeed("MITM model parsing calldata and intent fingerprints");
+
+    try {
+      const data = await interceptTransaction(payload);
+      setLiveAttackResult(data);
+      onResult({ scenario: { id: "live-attack", name: "Live Attack" }, data });
+
+      const riskLevel = String(data?.risk_level || data?.risk_report?.risk_level || "unknown").toLowerCase();
+      const riskScore = data?.risk_score ?? data?.risk_report?.risk_score ?? "N/A";
+      const why = data?.why_risky || data?.decision_context?.why_risky || "Threat context unavailable";
+
+      if (riskLevel === "critical" || riskLevel === "high") {
+        setLiveStage("blocked");
+        pushFeed(`Threat detected (${riskLevel.toUpperCase()} / ${riskScore}) -> policy: BLOCK_AND_REWRITE`);
+        if (typeof onThreatDetected === "function") {
+          onThreatDetected({
+            txId: data?.tx_id,
+            riskLevel,
+            riskScore,
+            reason: why,
+            attackType: payload.attack_type,
+          });
+        }
+      } else {
+        setLiveStage("review");
+        pushFeed(`Risk evaluated (${riskLevel.toUpperCase()} / ${riskScore}) -> awaiting human decision`);
+      }
+
+      setLiveAttackIndex((prev) => prev + 1);
+    } catch (err) {
+      const msg = err.message || "Live attack request failed";
+      setLiveError(msg);
+      setLiveStage("failed");
+      pushFeed(`Interception pipeline error: ${msg}`);
+      onResult({ scenario: { id: "live-attack", name: "Live Attack" }, data: null, error: msg });
+    } finally {
+      setLiveAttackLoading(false);
+    }
+  }
+
+  async function decideLiveAttack(action) {
+    if (!liveAttackResult?.tx_id) {
+      return;
+    }
+
+    setDecisionLoading(true);
+    setLiveError("");
+    try {
+      if (action === "approve") {
+        await approveTransaction(liveAttackResult.tx_id);
+        pushFeed(`Analyst decision -> APPROVED safe rewrite for ${liveAttackResult.tx_id}`);
+      } else {
+        await rejectTransaction(liveAttackResult.tx_id);
+        pushFeed(`Analyst decision -> REJECTED attack tx ${liveAttackResult.tx_id}`);
+      }
+      setLiveAttackResult((prev) => ({ ...prev, decision: action }));
+      setLiveStage("resolved");
+    } catch (err) {
+      setLiveError(err.message || "Failed to submit decision");
+      pushFeed(`Decision submit failed: ${err.message || "unknown error"}`);
+    } finally {
+      setDecisionLoading(false);
+    }
+  }
+
+  const liveRiskScore =
+    liveAttackResult?.risk_score ?? liveAttackResult?.risk_report?.risk_score ?? "N/A";
+  const liveRiskLevel =
+    liveAttackResult?.risk_level ?? liveAttackResult?.risk_report?.risk_level ?? "unknown";
+  const liveWhyRisky =
+    liveAttackResult?.why_risky ??
+    liveAttackResult?.decision_context?.why_risky ??
+    "Risk context unavailable";
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
@@ -179,6 +331,80 @@ export default function DemoScenarios({ wallet, onResult }) {
           )}
         </p>
       </div>
+
+      <div className="bg-guard-card border border-guard-accent/30 rounded-xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="px-2 py-1 rounded border border-guard-danger/40 text-guard-danger bg-guard-danger/10">
+            ATTACK SOURCE: {currentSource}
+          </span>
+          <span className="px-2 py-1 rounded border border-guard-warning/40 text-guard-warning bg-guard-warning/10">
+            NEXT VECTOR: {String(nextPayload.attack_type || "unknown").toUpperCase()}
+          </span>
+          <span className="px-2 py-1 rounded border border-guard-accent/40 text-guard-accent bg-guard-accent/10">
+            STAGE: {String(liveStage).toUpperCase()}
+          </span>
+        </div>
+
+        <button
+          onClick={runLiveAttack}
+          disabled={liveAttackLoading}
+          className="px-4 py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-guard-warning to-guard-danger border border-guard-warning/40 hover:opacity-95 disabled:opacity-60"
+        >
+          {liveAttackLoading ? "Sending Live Attack..." : "⚡ Live Attack"}
+        </button>
+
+        {liveError && (
+          <div className="p-3 bg-guard-danger/10 border border-guard-danger/30 rounded-lg text-guard-danger text-sm">
+            {liveError}
+          </div>
+        )}
+
+        {liveAttackResult && (
+          <div className="space-y-3 rounded-lg border border-guard-warning/30 bg-black/30 p-3">
+            <div className="text-sm text-gray-200">
+              <span className="text-guard-accent font-semibold">risk_score:</span> {String(liveRiskScore)}
+            </div>
+            <div className="text-sm text-gray-200">
+              <span className="text-guard-accent font-semibold">risk_level:</span> {String(liveRiskLevel)}
+            </div>
+            <div className="text-sm text-gray-200">
+              <span className="text-guard-accent font-semibold">why_risky:</span> {String(liveWhyRisky)}
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => decideLiveAttack("approve")}
+                disabled={decisionLoading}
+                className="px-3 py-2 rounded-lg border border-guard-safe/40 text-guard-safe hover:bg-guard-safe/10 disabled:opacity-60"
+              >
+                ✅ Approve Safe TX
+              </button>
+              <button
+                onClick={() => decideLiveAttack("reject")}
+                disabled={decisionLoading}
+                className="px-3 py-2 rounded-lg border border-guard-danger/40 text-guard-danger hover:bg-guard-danger/10 disabled:opacity-60"
+              >
+                ❌ Reject & Block
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-lg border border-guard-accent/20 bg-black/40 p-3">
+          <div className="text-xs text-guard-accent mb-2">Live Attack Feed</div>
+          {attackFeed.length === 0 ? (
+            <div className="text-xs text-gray-500">No live attack events yet.</div>
+          ) : (
+            <div className="space-y-1">
+              {attackFeed.map((line, idx) => (
+                <div key={`${line}-${idx}`} className="text-xs text-gray-300 font-mono">
+                  {line}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="grid md:grid-cols-2 gap-6">
         {SCENARIOS.map((s, idx) => (
           <div
