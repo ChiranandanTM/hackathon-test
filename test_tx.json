@@ -1,0 +1,12 @@
+{
+  "from_address": "0x1234567890123456789012345678901234567890",
+  "to_address": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+  "function_name": "approve",
+  "args": {
+    "spender": "0xbad",
+    "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+  },
+  "value": 0,
+  "user_intent": "Test transaction",
+  "wallet_balance": 1000000
+}

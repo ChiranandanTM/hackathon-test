@@ -1,0 +1,11 @@
+firebase-functions>=0.4.0
+a2wsgi>=1.10.8
+fastapi
+uvicorn
+pymongo
+python-dotenv
+anthropic
+pydantic
+motor
+httpx
+web3

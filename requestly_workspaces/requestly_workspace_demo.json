@@ -1,0 +1,1256 @@
+{
+  "version": "1.0",
+  "created_at": "2026-03-13T07:38:26.213245",
+  "environment": "local",
+  "requests": [
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/",
+      "body": null,
+      "headers": {
+        "User-Agent": "RequestlyAPIClient/1.0",
+        "X-Request-ID": "e9f175c3dce86c32"
+      },
+      "timestamp": "2026-03-13T07:38:23.941967",
+      "request_id": "e9f175c3dce86c32"
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:8000/audit",
+      "body": null,
+      "headers": {
+        "User-Agent": "RequestlyAPIClient/1.0",
+        "X-Request-ID": "089b68febfb00681"
+      },
+      "timestamp": "2026-03-13T07:38:25.210766",
+      "request_id": "089b68febfb00681"
+    }
+  ],
+  "responses": [
+    {
+      "status_code": 200,
+      "headers": {
+        "date": "Fri, 13 Mar 2026 07:38:25 GMT",
+        "server": "uvicorn",
+        "content-length": "115",
+        "content-type": "application/json"
+      },
+      "body": {
+        "status": "ok",
+        "service": "AgentGuard API",
+        "version": "1.0.0",
+        "tracks": [
+          "ETHIndia Ethereum Track",
+          "Requestly Track"
+        ]
+      },
+      "request_id": "e9f175c3dce86c32",
+      "timestamp": "2026-03-13T07:38:25.210576"
+    },
+    {
+      "status_code": 200,
+      "headers": {
+        "date": "Fri, 13 Mar 2026 07:38:25 GMT",
+        "server": "uvicorn",
+        "content-length": "35958",
+        "content-type": "application/json"
+      },
+      "body": {
+        "transactions": [
+          {
+            "_id": "69b3becdb2cd7a43afc93f80",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xBAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false,
+              "risk_score": 100,
+              "requires_human_review": true,
+              "policy_action": "block_and_rewrite",
+              "top_threat": "infinite_approval"
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xBAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "decision_context": {
+              "ai_tried": "User intent: Approve spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "why_risky": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens. The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution.",
+              "agentguard_proposes": "Replaced infinite approval with safe amount: 100 tokens",
+              "human_choice_prompt": "Approve AgentGuard safe transaction or reject this request."
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:37:49.793534+00:00",
+            "onchain": {
+              "interception": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              },
+              "rewrite": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              }
+            }
+          },
+          {
+            "_id": "69b3bec9b2cd7a43afc93f7f",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve spending for protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false,
+              "risk_score": 100,
+              "requires_human_review": true,
+              "policy_action": "block_and_rewrite",
+              "top_threat": "infinite_approval"
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve spending for protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve spending for protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "decision_context": {
+              "ai_tried": "User intent: Approve spending for protocol. AI analysis unavailable (no API key).",
+              "why_risky": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens. The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution.",
+              "agentguard_proposes": "Replaced infinite approval with safe amount: 100 tokens",
+              "human_choice_prompt": "Approve AgentGuard safe transaction or reject this request."
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:37:45.389187+00:00",
+            "onchain": {
+              "interception": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              },
+              "rewrite": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              }
+            }
+          },
+          {
+            "_id": "69b3bec1b2cd7a43afc93f7e",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xBAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false,
+              "risk_score": 100,
+              "requires_human_review": true,
+              "policy_action": "block_and_rewrite",
+              "top_threat": "infinite_approval"
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xBAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "decision_context": {
+              "ai_tried": "User intent: Approve spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "why_risky": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens. The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution.",
+              "agentguard_proposes": "Replaced infinite approval with safe amount: 100 tokens",
+              "human_choice_prompt": "Approve AgentGuard safe transaction or reject this request."
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:37:37.291895+00:00",
+            "onchain": {
+              "interception": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              },
+              "rewrite": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              }
+            }
+          },
+          {
+            "_id": "69b3bda422d389ef33cd05a8",
+            "original_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false,
+              "risk_score": 100,
+              "requires_human_review": true,
+              "policy_action": "block_and_rewrite",
+              "top_threat": "infinite_approval"
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "decision_context": {
+              "ai_tried": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "why_risky": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens. The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution.",
+              "agentguard_proposes": "Replaced infinite approval with safe amount: 100 tokens",
+              "human_choice_prompt": "Approve AgentGuard safe transaction or reject this request."
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:32:52.772290+00:00",
+            "onchain": {
+              "interception": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              },
+              "rewrite": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              }
+            }
+          },
+          {
+            "_id": "69b3bae21bc006d667ffc9dd",
+            "original_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "transfer",
+              "args": {
+                "to": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "4950000000"
+              },
+              "value": 0.0,
+              "user_intent": "Claim airdrop reward",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "high",
+              "flags": [
+                {
+                  "type": "wallet_drain",
+                  "severity": "high",
+                  "description": "This transaction attempts to spend 99% of your wallet balance. This could be a wallet drain attack."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Claim airdrop reward. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "transfer",
+              "args": {
+                "to": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "2500000000"
+              },
+              "value": 0.0,
+              "user_intent": "Claim airdrop reward",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Limited spending to 50% of wallet balance: 2500000000",
+              "is_safe_version": true
+            },
+            "decision_context": {
+              "ai_tried": "User intent: Claim airdrop reward. AI analysis unavailable (no API key).",
+              "why_risky": "This transaction attempts to spend 99% of your wallet balance. This could be a wallet drain attack. The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution.",
+              "agentguard_proposes": "Limited spending to 50% of wallet balance: 2500000000",
+              "human_choice_prompt": "Approve AgentGuard safe transaction or reject this request."
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:21:06.030862+00:00",
+            "onchain": {
+              "interception": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              },
+              "rewrite": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              }
+            }
+          },
+          {
+            "_id": "69b3ba9384d433c563b5aef6",
+            "original_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "decision_context": {
+              "ai_tried": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "why_risky": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens. The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution.",
+              "agentguard_proposes": "Replaced infinite approval with safe amount: 100 tokens",
+              "human_choice_prompt": "Approve AgentGuard safe transaction or reject this request."
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:19:47.620217+00:00",
+            "onchain": {
+              "interception": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              },
+              "rewrite": {
+                "enabled": false,
+                "recorded": false,
+                "reason": "Missing ETH_RPC_URL / ETH_PRIVATE_KEY / GUARDIAN_PROXY_ADDRESS"
+              }
+            }
+          },
+          {
+            "_id": "69b3b972c7dedfb7f63d09df",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:14:58.609999+00:00"
+          },
+          {
+            "_id": "69b3b8eac7dedfb7f63d09de",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:12:42.318285+00:00"
+          },
+          {
+            "_id": "69b3b855c7dedfb7f63d09dd",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "transfer",
+              "args": {
+                "to": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "4950000000"
+              },
+              "value": 0.0,
+              "user_intent": "Claim airdrop reward",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "high",
+              "flags": [
+                {
+                  "type": "wallet_drain",
+                  "severity": "high",
+                  "description": "This transaction attempts to spend 99% of your wallet balance. This could be a wallet drain attack."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Claim airdrop reward. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "transfer",
+              "args": {
+                "to": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "2500000000"
+              },
+              "value": 0.0,
+              "user_intent": "Claim airdrop reward",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Limited spending to 50% of wallet balance: 2500000000",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:10:13.278142+00:00"
+          },
+          {
+            "_id": "69b3b84ac7dedfb7f63d09dc",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:10:02.834019+00:00"
+          },
+          {
+            "_id": "69b3b78ac7dedfb7f63d09db",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:06:50.097362+00:00"
+          },
+          {
+            "_id": "69b3b6e4c7dedfb7f63d09da",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:04:04.893464+00:00"
+          },
+          {
+            "_id": "69b3b6a6c7dedfb7f63d09d9",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:03:02.531562+00:00"
+          },
+          {
+            "_id": "69b3b6a2c7dedfb7f63d09d8",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:02:58.701997+00:00"
+          },
+          {
+            "_id": "69b3b680c7dedfb7f63d09d7",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:02:24.053723+00:00"
+          },
+          {
+            "_id": "69b3b64fc7dedfb7f63d09d6",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "approved",
+            "timestamp": "2026-03-13T07:01:35.937525+00:00",
+            "resolved_at": "2026-03-13T07:01:38.895261+00:00"
+          },
+          {
+            "_id": "69b3b622c7dedfb7f63d09d5",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T07:00:50.731617+00:00"
+          },
+          {
+            "_id": "69b3b59ac7dedfb7f63d09d4",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T06:58:34.789653+00:00"
+          },
+          {
+            "_id": "69b3b381c7dedfb7f63d09d3",
+            "original_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0xUSER",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T06:49:37.160465+00:00"
+          },
+          {
+            "_id": "69b3b328c7dedfb7f63d09d2",
+            "original_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0
+            },
+            "risk_report": {
+              "risk_level": "critical",
+              "flags": [
+                {
+                  "type": "infinite_approval",
+                  "severity": "critical",
+                  "description": "This transaction grants unlimited token spending permission. A malicious contract could drain all your tokens."
+                },
+                {
+                  "type": "unverified_contract",
+                  "severity": "medium",
+                  "description": "The target contract (0xDEADBEEF...) is not in our verified list. Proceed with caution."
+                }
+              ],
+              "is_safe": false
+            },
+            "llm_analysis": {
+              "intent_summary": "User intent: Approve token spending for a DeFi protocol. AI analysis unavailable (no API key).",
+              "risk_explanation": "The AI analysis service is currently unavailable. Please review the risk flags manually.",
+              "safe_action": "reject",
+              "safe_params": {}
+            },
+            "safe_tx": {
+              "from_address": "0x0aB3FC575447EEC8545a0c619435F26DBf23fE73",
+              "to_address": "0xDEADBEEF0000000000000000000000000000DEAD",
+              "function_name": "approve",
+              "args": {
+                "spender": "0xATTACKER000000000000000000000000000BAD",
+                "amount": "100000000"
+              },
+              "value": 0.0,
+              "user_intent": "Approve token spending for a DeFi protocol",
+              "wallet_balance": 5000000000.0,
+              "rewrite_reason": "Replaced infinite approval with safe amount: 100 tokens",
+              "is_safe_version": true
+            },
+            "status": "pending",
+            "timestamp": "2026-03-13T06:48:08.097078+00:00"
+          }
+        ],
+        "count": 20
+      },
+      "request_id": "089b68febfb00681",
+      "timestamp": "2026-03-13T07:38:26.210307"
+    }
+  ],
+  "validation_results": {
+    "total_validated": 2,
+    "successful": 2
+  }
+}

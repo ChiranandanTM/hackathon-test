@@ -1,0 +1,199 @@
+AgentGuard - Live Project Workflow (Current Implementation)
+==========================================================
+
+Project Name:
+AgentGuard
+
+Current Live Goal:
+Protect users from irreversible AI-driven blockchain transaction mistakes by intercepting risky transactions, rewriting safer alternatives, enforcing human approval, and recording auditable evidence.
+
+
+1) What Is Live Right Now
+-------------------------
+AgentGuard currently includes:
+- Risk interception pipeline: running
+- Plain-English decision context: running
+- Safe transaction rewriting: running
+- Human approve/reject flow: running
+- Database audit trail (MongoDB): running
+- Optional on-chain audit logging (GuardianProxy): implemented, enabled via env values
+- Requestly track workflow APIs: implemented and callable via backend endpoints
+
+
+2) Current System Architecture
+------------------------------
+A) Frontend (React + Vite + Tailwind)
+- User-facing tabs in UI:
+  - Demo Scenarios
+  - Audit Log
+- Core components:
+  - DemoScenarios.jsx
+  - TransactionComparison.jsx
+  - WalletConnect.jsx
+  - AuditLog.jsx
+
+Note: Requestly operations are intentionally kept backend-driven for judge/demo APIs without adding UI clutter.
+
+B) Backend (FastAPI)
+- Core security endpoints:
+  - POST /intercept
+  - POST /approve/{tx_id}
+  - POST /reject/{tx_id}
+  - GET /audit
+- Judge/metrics endpoints:
+  - GET /judge/scorecard
+  - GET /judge/requestly-proof
+  - GET /audit/evidence/{tx_id}
+- Requestly workflow endpoints:
+  - GET /requestly/workflow/overview
+  - POST /requestly/workflow/complex-request
+  - GET /requestly/workflow/validate
+  - GET /requestly/workflow/run-tests
+  - POST /requestly/workflow/export-workspace
+
+C) Security Services
+- risk_detector.py
+  - Detects threats
+  - Produces risk_level + risk_score + policy_action + top_threat
+- llm_service.py
+  - Produces plain-English risk explanation and intent summary
+- tx_rewriter.py
+  - Generates safe transaction version when needed
+- blockchain_audit.py
+  - Writes on-chain audit logs (interception/rewrite/decision) when configured
+- requestly_client.py
+  - Complex request construction
+  - Multi-auth support (none, bearer, api_key, hmac)
+  - Endpoint validation + history export
+
+D) Smart Contract Layer
+- GuardianProxy.sol
+  - TransactionIntercepted event
+  - TransactionRewritten event
+  - DecisionRecorded event
+- MockUSDC.sol for local/test transaction simulation
+
+
+3) Live End-to-End Workflow
+---------------------------
+Step 1: Incoming request
+- Client submits a proposed blockchain transaction to POST /intercept.
+
+Step 2: Risk analysis
+- risk_detector evaluates patterns and returns:
+  - risk_level
+  - flags
+  - risk_score (0-100)
+  - policy_action (allow/review/block_and_rewrite)
+  - requires_human_review
+
+Step 3: AI explanation
+- llm_service creates plain-English explanation so users do not need blockchain expertise.
+
+Step 4: Safer rewrite
+- tx_rewriter creates safe_tx for risky payloads.
+
+Step 5: Human decision context
+- Backend returns:
+  - ai_tried
+  - why_risky
+  - agentguard_proposes
+  - human_choice_prompt
+
+Step 6: Audit recording
+- MongoDB record is stored for every interception.
+- If on-chain env is configured, interception and rewrite are logged on Ethereum.
+
+Step 7: User decision
+- User approves safe version or rejects the risky transaction.
+- Approve endpoint records approved_variant = safe_tx.
+
+Step 8: Evidence and reporting
+- /audit shows recent records
+- /audit/evidence/{tx_id} returns per-transaction proof package
+- /judge/scorecard returns aggregated metrics
+- /judge/requestly-proof returns Requestly-track qualification proof
+
+
+4) Requestly Track - What Is Implemented
+----------------------------------------
+This project satisfies the Requestly API Client challenge using backend workflow APIs:
+
+A) Complex Request Construction
+- Endpoint: POST /requestly/workflow/complex-request
+- Supports rich request bodies and auth schemes:
+  - none
+  - bearer
+  - api_key
+  - hmac
+
+B) Endpoint Validation
+- Endpoint: GET /requestly/workflow/validate
+- Verifies expected status behavior for core APIs (health/intercept/audit flow).
+
+C) Testing (Pre/Post Scripts)
+- Endpoint: GET /requestly/workflow/run-tests
+- Executes script-driven request/response validation behavior.
+
+D) Local Workspace Collaboration
+- Endpoint: POST /requestly/workflow/export-workspace
+- Exports request/response history JSON for team sharing through git/workspaces.
+
+E) Judge Proof Endpoint
+- Endpoint: GET /judge/requestly-proof
+- Provides concise machine-readable evidence of all Requestly focus areas.
+
+
+5) Real-World Example (Current Live Flow)
+-----------------------------------------
+Scenario: AI wallet assistant attempts infinite approval.
+
+1. AI proposes approve(spender, MAX_UINT).
+2. POST /intercept receives request.
+3. AgentGuard flags critical infinite approval and unverified target.
+4. Risk score returns high/critical policy action.
+5. Safe rewrite changes approval to limited amount.
+6. UI shows plain-English "AI Tried" vs "AgentGuard Proposes".
+7. Human chooses approve safe or reject.
+8. Decision is stored in MongoDB and optionally logged on-chain.
+9. Team can present /audit/evidence/{tx_id} as tamper-resistant proof.
+
+
+6) Why This Project Is Useful
+-----------------------------
+1. Prevents irreversible loss in blockchain operations.
+2. Adds human control to autonomous AI transaction systems.
+3. Makes security decisions understandable for non-technical users.
+4. Produces strong auditability for compliance, trust, and demos.
+5. Demonstrates practical Requestly API Client workflow engineering.
+
+
+7) Current Demo Path (Recommended for Judges)
+---------------------------------------------
+1. Run one Demo Scenario from UI.
+2. Show risk score + plain-English decision context.
+3. Approve safe tx or reject risky tx.
+4. Open /audit/evidence/{tx_id}.
+5. Open /judge/scorecard.
+6. Open /judge/requestly-proof.
+7. Call /requestly/workflow/validate and /requestly/workflow/run-tests.
+
+
+8) Technology Stack (Live)
+--------------------------
+- Frontend: React, Vite, Tailwind CSS, ethers.js
+- Backend: FastAPI, Python, MongoDB
+- Blockchain: Solidity, Hardhat, Ethereum-compatible deployment
+- Optional On-Chain Logger: web3.py backend service
+
+
+9) Final Live Value Statement
+-----------------------------
+AgentGuard is an operational human-in-the-loop safety layer for AI-driven blockchain finance.
+
+AI suggests.
+AgentGuard analyzes and rewrites safely.
+Human decides.
+Evidence is recorded.
+
+This is the exact control model needed for safe real-world autonomous crypto workflows.
