@@ -211,9 +211,11 @@ function TransactionFeed({ transactions = [] }) {
     { id: "0x5e6f", func: "mint", risk: "medium", time: "12s ago" },
   ];
 
+  const rows = transactions.length > 0 ? transactions : mockTxs;
+
   return (
     <div className="space-y-2 text-xs font-mono">
-      {mockTxs.map((tx, i) => (
+      {rows.map((tx, i) => (
         <div
           key={tx.id}
           className="flex items-center justify-between bg-black/40 border border-guard-accent/20 rounded-lg p-3 hover:border-guard-accent/50 transition-all animate-slide-in"
@@ -283,6 +285,36 @@ function CodeDiff({ originalCode, safeCode }) {
 }
 
 export default function ThreatVisualization({ result }) {
+  const data = result?.data || {};
+  const riskScore = Number(data?.risk_score ?? data?.risk_report?.risk_score ?? 0);
+  const riskLevel = String(data?.risk_level ?? data?.risk_report?.risk_level ?? "unknown").toLowerCase();
+  const txId = data?.tx_id || "-";
+  const attackType = data?.attack_type || data?.original_tx?.attack_type || "unknown";
+  const functionName =
+    data?.original_tx?.function_name || data?.original_tx?.tx_type || data?.tx_type || "unknown";
+  const whyRisky =
+    data?.why_risky || data?.decision_context?.why_risky || data?.llm_analysis?.risk_explanation || "No threat data yet.";
+
+  const liveRows =
+    result?.data
+      ? [
+          {
+            id: String(txId).slice(0, 10),
+            func: functionName,
+            risk: riskLevel,
+            time: "now",
+          },
+        ]
+      : [];
+
+  const originalCodePreview = data?.original_tx
+    ? `${functionName}(${JSON.stringify(data.original_tx.args || {}).slice(0, 70)}...)`
+    : undefined;
+
+  const safeCodePreview = data?.safe_tx
+    ? `${data.safe_tx.function_name || "safe_tx"}(${JSON.stringify(data.safe_tx.args || {}).slice(0, 70)}...)`
+    : (data?.agentguard_proposes || data?.decision_context?.agentguard_proposes || undefined);
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
@@ -302,13 +334,39 @@ export default function ThreatVisualization({ result }) {
         {/* Center: Risk Gauge */}
         <div className="card-glow bg-guard-card border border-guard-accent/20 rounded-xl p-6 flex flex-col items-center">
           <h3 className="text-sm font-semibold text-guard-accent mb-4">Risk Analysis</h3>
-          <RiskGauge score={result?.data?.risk_report?.risk_score || 0} />
+          <RiskGauge score={riskScore} />
         </div>
 
         {/* Right: Transaction Feed */}
         <div className="card-glow bg-guard-card border border-guard-accent/20 rounded-xl p-6">
           <h3 className="text-sm font-semibold text-guard-accent mb-4">Live Feed</h3>
-          <TransactionFeed />
+          <TransactionFeed transactions={liveRows} />
+        </div>
+      </div>
+
+      <div className="card-glow bg-guard-card border border-guard-accent/20 rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-guard-accent mb-4">Current Attack Info</h3>
+        <div className="grid sm:grid-cols-2 gap-3 text-sm">
+          <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+            <div className="text-gray-400 text-xs">tx_id</div>
+            <div className="text-gray-200 font-mono break-all">{txId}</div>
+          </div>
+          <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+            <div className="text-gray-400 text-xs">attack_type</div>
+            <div className="text-guard-danger font-semibold uppercase">{attackType}</div>
+          </div>
+          <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+            <div className="text-gray-400 text-xs">function</div>
+            <div className="text-gray-200 font-semibold">{functionName}</div>
+          </div>
+          <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
+            <div className="text-gray-400 text-xs">risk_level</div>
+            <div className="text-guard-warning font-semibold uppercase">{riskLevel}</div>
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-lg border border-guard-danger/30 bg-guard-danger/10 p-3 text-sm text-gray-200">
+          <span className="text-guard-danger font-semibold">Simple Summary:</span> {whyRisky}
         </div>
       </div>
 
@@ -316,16 +374,8 @@ export default function ThreatVisualization({ result }) {
       <div className="card-glow bg-guard-card border border-guard-accent/20 rounded-xl p-6">
         <h3 className="text-sm font-semibold text-guard-accent mb-4">Transaction Comparison</h3>
         <CodeDiff
-          originalCode={
-            result?.data?.original_tx
-              ? `${result.data.original_tx.function_name}(${JSON.stringify(result.data.original_tx.args).slice(0, 50)}...)`
-              : undefined
-          }
-          safeCode={
-            result?.data?.safe_tx
-              ? `${result.data.safe_tx.function_name}(${JSON.stringify(result.data.safe_tx.args).slice(0, 50)}...)`
-              : undefined
-          }
+          originalCode={originalCodePreview}
+          safeCode={safeCodePreview}
         />
       </div>
     </div>

@@ -4,6 +4,7 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "deploy": "npx hardhat run scripts/deploy.js --network sepolia",
+    "deploy:demo": "npx hardhat run scripts/deployDemo.js --network sepolia",
     "deploy:local": "npx hardhat run scripts/deploy.js --network localhost",
     "node": "npx hardhat node",
     "test": "npx hardhat test"
