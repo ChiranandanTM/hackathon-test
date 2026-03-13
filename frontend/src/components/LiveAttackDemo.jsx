@@ -16,12 +16,30 @@ function formatUnits(value) {
   return Number(ethers.formatUnits(value || 0n, DEMO_CONFIG.tokenDecimals || 6)).toFixed(2);
 }
 
+function clampToTwoDecimals(value) {
+  return Number(value).toFixed(2);
+}
+
+function withTimeout(promise, ms, label) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 function AddressBadge({ title, address, balance, colorClass }) {
   return (
-    <div className={`rounded-xl border p-4 ${colorClass}`}>
-      <div className="text-xs text-gray-400">{title}</div>
-      <div className="mt-1 text-sm text-gray-200 font-mono break-all">{address || "not configured"}</div>
-      <div className="mt-2 text-lg font-bold text-white">{balance} MUSDC</div>
+    <div
+      className={`rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${colorClass}`}
+    >
+      <div className="text-xs tracking-wide uppercase text-slate-500">{title}</div>
+      <div className="mt-2 text-sm text-slate-700 font-mono break-all">{address || "not configured"}</div>
+      <div className="mt-3 text-3xl font-semibold text-slate-900">{balance}</div>
+      <div className="text-xs text-slate-500">MUSDC</div>
     </div>
   );
 }
@@ -46,7 +64,9 @@ export default function LiveAttackDemo({ onResult, onNotify }) {
 
   const simulationMessage = useMemo(() => {
     if (simulationReason === "insufficient_funds") {
-      return "Simulation mode active because deployer Sepolia balance is too low for wallet funding + contract deployment. Fund the deployer wallet, rerun `npm run deploy:demo`, then refresh frontend.";
+      const actual = DEMO_CONFIG.deployerBalanceEth || "unknown";
+      const needed = DEMO_CONFIG.minRequiredBalanceEth || "unknown";
+      return `Simulation mode active because deployer Sepolia balance is too low for wallet funding + deployment gas (current: ${actual} ETH, recommended: ${needed} ETH). Fund the deployer wallet, rerun \`npm run deploy:demo\`, then refresh frontend.`;
     }
     if (simulationReason === "missing_deployer_key") {
       return "Simulation mode active because deployer key is missing. Set `PRIVATE_KEY` (or `DEMO_DEPLOYER_PRIVATE_KEY`) in `contracts/.env`, rerun `npm run deploy:demo`, then refresh frontend.";
@@ -80,18 +100,77 @@ export default function LiveAttackDemo({ onResult, onNotify }) {
     }
   }
 
-  async function refreshBalances(provider, tokenAddress) {
+  async function animateBalances(start, end, durationMs = 2600) {
+    const started = Date.now();
+
+    return new Promise((resolve) => {
+      const timer = setInterval(() => {
+        const elapsed = Date.now() - started;
+        const t = Math.min(1, elapsed / durationMs);
+
+        const eased = 1 - (1 - t) * (1 - t);
+        const next = {
+          alex: clampToTwoDecimals(Number(start.alex) + (Number(end.alex) - Number(start.alex)) * eased),
+          sam: clampToTwoDecimals(Number(start.sam) + (Number(end.sam) - Number(start.sam)) * eased),
+          attacker: clampToTwoDecimals(
+            Number(start.attacker) + (Number(end.attacker) - Number(start.attacker)) * eased
+          ),
+        };
+
+        setBalances(next);
+
+        if (t >= 1) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 80);
+    });
+  }
+
+  async function readBalances(provider, tokenAddress) {
     const token = new ethers.Contract(tokenAddress, MOCK_USDC_ABI, provider);
     const [alexBal, samBal, attackerBal] = await Promise.all([
       token.balanceOf(DEMO_CONFIG.demoWallets.alex.address),
       token.balanceOf(DEMO_CONFIG.demoWallets.sam.address),
       token.balanceOf(DEMO_CONFIG.demoWallets.attacker.address),
     ]);
+    return { alexBal, samBal, attackerBal };
+  }
+
+  function setBalancesFromRaw(raw) {
     setBalances({
-      alex: formatUnits(alexBal),
-      sam: formatUnits(samBal),
-      attacker: formatUnits(attackerBal),
+      alex: formatUnits(raw.alexBal),
+      sam: formatUnits(raw.samBal),
+      attacker: formatUnits(raw.attackerBal),
     });
+  }
+
+  async function refreshBalances(provider, tokenAddress) {
+    const raw = await readBalances(provider, tokenAddress);
+    setBalancesFromRaw(raw);
+    return raw;
+  }
+
+  async function runSimulationFlow(reason = "manual") {
+    if (reason === "insufficient_funds") {
+      pushLog("Running in simulation mode because deployer Sepolia funds are insufficient.");
+    } else if (reason === "missing_deployer_key") {
+      pushLog("Running in simulation mode because deployer key is missing in contracts/.env.");
+    } else if (reason === "onchain_error") {
+      pushLog("On-chain execution failed. Falling back to simulation mode for continuity.");
+    } else {
+      pushLog("Running in simulation mode.");
+    }
+
+    const simStart = { alex: "50.00", sam: "50.00", attacker: "0.00" };
+    const simEnd = { alex: "30.00", sam: "50.00", attacker: "20.00" };
+    setBalances(simStart);
+    pushLog("Animation started: Alex drains while attacker balance rises.");
+    await animateBalances(simStart, simEnd, 2800);
+    pushLog("Alex unprotected wallet drained by 20 MUSDC (simulated). ");
+    pushLog("Sam protected transaction blocked by intent validation (simulated).");
+    await fetchAiExplanation();
+    onNotify?.("Live Attack Demo completed in simulation mode.", "success");
   }
 
   async function executeOnChainDemo() {
@@ -102,18 +181,7 @@ export default function LiveAttackDemo({ onResult, onNotify }) {
 
     try {
       if (isSimulationMode) {
-        if (simulationReason === "insufficient_funds") {
-          pushLog("Running in simulation mode because deployer Sepolia funds are insufficient.");
-        } else if (simulationReason === "missing_deployer_key") {
-          pushLog("Running in simulation mode because deployer key is missing in contracts/.env.");
-        } else {
-          pushLog("Running in simulation mode.");
-        }
-        setBalances({ alex: "30.00", sam: "50.00", attacker: "20.00" });
-        pushLog("Alex unprotected wallet drained by 20 MUSDC (simulated). ");
-        pushLog("Sam protected transaction blocked by intent validation (simulated).");
-        await fetchAiExplanation();
-        onNotify?.("Live Attack Demo completed in simulation mode.", "success");
+        await runSimulationFlow(simulationReason || "manual");
         return;
       }
 
@@ -137,142 +205,208 @@ export default function LiveAttackDemo({ onResult, onNotify }) {
         samSigner
       );
 
-      await refreshBalances(provider, DEMO_CONFIG.contracts.mockUsdc);
+      const initialRaw = await withTimeout(
+        refreshBalances(provider, DEMO_CONFIG.contracts.mockUsdc),
+        15000,
+        "Initial balance fetch"
+      );
       pushLog("Fetched initial Sepolia balances for Alex, Sam, and Attacker.");
 
-      const allowance = await token.allowance(
-        DEMO_CONFIG.demoWallets.alex.address,
-        DEMO_CONFIG.contracts.attackSimulator
+      const allowance = await withTimeout(
+        token.allowance(DEMO_CONFIG.demoWallets.alex.address, DEMO_CONFIG.contracts.attackSimulator),
+        15000,
+        "Allowance check"
       );
       if (allowance < asUnits(DEMO_CONFIG.drainAmount || "20")) {
         throw new Error("Alex allowance to AttackSimulator is not configured. Re-run deploy:demo.");
       }
 
-      pushLog("Submitting Alex unprotected drain transaction...");
-      const alexTx = await attackSimulator.drainWallet(
+      pushLog("Submitting Alex drain and Sam protected transaction in parallel...");
+      const alexTxPromise = attackSimulator.drainWallet(
         DEMO_CONFIG.contracts.mockUsdc,
         DEMO_CONFIG.demoWallets.alex.address,
         DEMO_CONFIG.demoWallets.attacker.address,
         asUnits(DEMO_CONFIG.drainAmount || "20")
       );
-      setHashes((prev) => ({ ...prev, alexDrainTx: alexTx.hash }));
-      await alexTx.wait();
-      pushLog("Alex transaction confirmed: attacker successfully drained approved tokens.");
 
-      pushLog("Submitting Sam malicious substituted payload via AgentGuardOnChain...");
-      try {
-        const samTx = await agentGuard.validateAndExecute(
+      const samTxPromise = agentGuard
+        .validateAndExecute(
           DEMO_CONFIG.contracts.mockUsdc,
           DEMO_CONFIG.demoWallets.attacker.address,
           asUnits(DEMO_CONFIG.drainAmount || "20")
-        );
+        )
+        .then((tx) => ({ ok: true, tx }))
+        .catch((err) => ({ ok: false, err }));
+
+      const alexTx = await withTimeout(alexTxPromise, 20000, "Alex transaction submission");
+      setHashes((prev) => ({ ...prev, alexDrainTx: alexTx.hash }));
+
+      let samTx = null;
+      const samResult = await withTimeout(samTxPromise, 20000, "Sam transaction submission");
+      if (samResult.ok) {
+        samTx = samResult.tx;
         setHashes((prev) => ({ ...prev, samBlockedTx: samTx.hash }));
-        await samTx.wait();
-        pushLog("Sam transaction unexpectedly passed. Check registered intent setup.");
-      } catch (err) {
+      } else {
         pushLog("Sam transaction reverted as expected: payload substitution blocked.");
       }
 
-      await refreshBalances(provider, DEMO_CONFIG.contracts.mockUsdc);
+      const drain = asUnits(DEMO_CONFIG.drainAmount || "20");
+      const animationStart = {
+        alex: formatUnits(initialRaw.alexBal),
+        sam: formatUnits(initialRaw.samBal),
+        attacker: formatUnits(initialRaw.attackerBal),
+      };
+      const animationEnd = {
+        alex: formatUnits(initialRaw.alexBal > drain ? initialRaw.alexBal - drain : 0n),
+        sam: formatUnits(initialRaw.samBal),
+        attacker: formatUnits(initialRaw.attackerBal + drain),
+      };
+
+      pushLog("Animation started while Sepolia transactions are being confirmed...");
+      await animateBalances(animationStart, animationEnd, 3200);
+
+      await withTimeout(alexTx.wait(), 90000, "Alex transaction confirmation");
+      pushLog("Alex transaction confirmed: attacker successfully drained approved tokens.");
+      if (samTx) {
+        try {
+          await withTimeout(samTx.wait(), 90000, "Sam transaction confirmation");
+          pushLog("Sam transaction unexpectedly passed. Check registered intent setup.");
+        } catch (err) {
+          pushLog("Sam protected transaction confirmed as reverted on-chain.");
+        }
+      }
+
+      await withTimeout(refreshBalances(provider, DEMO_CONFIG.contracts.mockUsdc), 15000, "Final balance fetch");
       pushLog("Final balances updated from on-chain state.");
 
       await fetchAiExplanation();
       onNotify?.("Live Attack Demo completed with on-chain proof.", "success");
     } catch (err) {
-      onNotify?.(err.message || "Live Attack Demo failed", "error");
       pushLog(`Demo error: ${err.message || "unknown"}`);
+      // Keep demo experience working even when RPC or contracts are temporarily unavailable.
+      await runSimulationFlow("onchain_error");
     } finally {
       setRunning(false);
     }
   }
 
   const explorer = DEMO_CONFIG.explorerBaseUrl || "https://sepolia.etherscan.io/tx/";
+  const modeBadgeClass = isSimulationMode
+    ? "border-amber-200 bg-amber-50 text-amber-700"
+    : "border-emerald-200 bg-emerald-50 text-emerald-700";
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-glow-cyan">Live Attack Demo (On-Chain)</h2>
-        <p className="text-gray-300 text-sm mt-2">
+    <div
+      className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-6 md:p-8 shadow-[0_24px_80px_rgba(15,23,42,0.12)] space-y-6 animate-fade-in"
+      style={{ fontFamily: '"Space Grotesk", "Manrope", "Segoe UI", sans-serif' }}
+    >
+      <div className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.20),rgba(59,130,246,0))]" />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.18),rgba(16,185,129,0))]" />
+
+      <div className="relative">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Live Attack Demo</h2>
+          <span className={`px-2.5 py-1 rounded-full text-xs border ${modeBadgeClass}`}>
+            {isSimulationMode ? "Simulation Mode" : "On-Chain Mode"}
+          </span>
+        </div>
+        <p className="text-slate-600 text-sm mt-2 max-w-2xl">
           Demonstrates unprotected drain vs AgentGuard-protected execution on Sepolia.
         </p>
       </div>
 
       {isSimulationMode && (
-        <div className="rounded-lg border border-guard-warning/30 bg-guard-warning/10 p-3 text-sm text-guard-warning">
+        <div className="relative rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-800 shadow-sm">
           {simulationMessage}
         </div>
       )}
 
       {!isConfigured && !isSimulationMode && (
-        <div className="rounded-lg border border-guard-warning/30 bg-guard-warning/10 p-3 text-sm text-guard-warning">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-800">
           Demo config is not generated yet. Run `npm run deploy:demo` inside `contracts` to create wallets,
           deploy contracts, and write `frontend/src/agentguard.config.js`.
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="relative rounded-2xl border border-slate-200 bg-white/90 backdrop-blur p-4 text-xs text-slate-600 space-y-2 shadow-sm">
+        <div>
+          Deployer: <span className="font-mono text-slate-900">{DEMO_CONFIG.deployerAddress || "not reported"}</span>
+        </div>
+        <div>
+          Balance: <span className="font-mono text-slate-900">{DEMO_CONFIG.deployerBalanceEth || "n/a"} ETH</span>
+        </div>
+        <div>
+          Recommended minimum: <span className="font-mono text-slate-900">{DEMO_CONFIG.minRequiredBalanceEth || "n/a"} ETH</span>
+        </div>
+        <div>
+          Wallet funding target: <span className="font-mono text-slate-900">{DEMO_CONFIG.walletFundingEth || "n/a"} ETH</span>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 relative">
         <AddressBadge
           title="Alex (Unprotected)"
           address={DEMO_CONFIG.demoWallets?.alex?.address}
           balance={balances.alex}
-          colorClass="border-guard-danger/40 bg-guard-danger/10"
+          colorClass="border-rose-200 bg-gradient-to-br from-rose-50 to-white"
         />
         <AddressBadge
           title="Sam (Protected)"
           address={DEMO_CONFIG.demoWallets?.sam?.address}
           balance={balances.sam}
-          colorClass="border-guard-safe/40 bg-guard-safe/10"
+          colorClass="border-emerald-200 bg-gradient-to-br from-emerald-50 to-white"
         />
         <AddressBadge
           title="Attacker (Rogue Agent)"
           address={DEMO_CONFIG.demoWallets?.attacker?.address}
           balance={balances.attacker}
-          colorClass="border-guard-warning/40 bg-guard-warning/10"
+          colorClass="border-amber-200 bg-gradient-to-br from-amber-50 to-white"
         />
       </div>
 
       <button
         onClick={executeOnChainDemo}
         disabled={running}
-        className="px-5 py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-guard-warning to-guard-danger border border-guard-warning/40 hover:opacity-95 disabled:opacity-60"
+        className="group relative overflow-hidden px-6 py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:shadow-[0_14px_36px_rgba(15,23,42,0.35)] transition-all duration-300 disabled:opacity-60"
       >
+        <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
         {running ? "Executing Live Demo..." : "Execute Live Attack Demo"}
       </button>
 
-      <div className="rounded-xl border border-guard-accent/30 bg-guard-card p-4 space-y-3">
-        <div className="text-sm font-semibold text-guard-accent">Transaction Proof</div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-3 shadow-sm">
+        <div className="text-sm font-semibold text-slate-900">Transaction Proof</div>
         {hashes.alexDrainTx ? (
-          <a className="text-xs text-guard-danger underline break-all" href={`${explorer}${hashes.alexDrainTx}`} target="_blank" rel="noreferrer">
+          <a className="text-xs text-rose-700 underline break-all" href={`${explorer}${hashes.alexDrainTx}`} target="_blank" rel="noreferrer">
             Alex Drain Tx: {hashes.alexDrainTx}
           </a>
         ) : (
-          <div className="text-xs text-gray-500">Alex drain transaction hash will appear after execution.</div>
+          <div className="text-xs text-slate-500">Alex drain transaction hash will appear after execution.</div>
         )}
 
         {hashes.samBlockedTx ? (
-          <a className="text-xs text-guard-safe underline break-all" href={`${explorer}${hashes.samBlockedTx}`} target="_blank" rel="noreferrer">
+          <a className="text-xs text-emerald-700 underline break-all" href={`${explorer}${hashes.samBlockedTx}`} target="_blank" rel="noreferrer">
             Sam Protected Tx: {hashes.samBlockedTx}
           </a>
         ) : (
-          <div className="text-xs text-gray-500">Sam protected tx often reverts before hash is finalized, which is expected.</div>
+          <div className="text-xs text-slate-500">Sam protected tx often reverts before hash is finalized, which is expected.</div>
         )}
       </div>
 
-      <div className="rounded-xl border border-guard-accent/20 bg-black/40 p-4 space-y-2">
-        <div className="text-sm font-semibold text-guard-accent">AI Explanation</div>
-        <div className="text-sm text-gray-200">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 space-y-2 shadow-sm">
+        <div className="text-sm font-semibold text-slate-900">AI Explanation</div>
+        <div className="text-sm text-slate-700 leading-6">
           {aiSummary || "Run the demo to fetch backend explanation for payload substitution."}
         </div>
       </div>
 
-      <div className="rounded-xl border border-guard-accent/20 bg-black/40 p-4">
-        <div className="text-sm font-semibold text-guard-accent mb-2">Execution Log</div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5 shadow-sm">
+        <div className="text-sm font-semibold text-slate-900 mb-2">Execution Log</div>
         {logs.length === 0 ? (
-          <div className="text-xs text-gray-500">No events yet.</div>
+          <div className="text-xs text-slate-500">No events yet.</div>
         ) : (
           <div className="space-y-1">
             {logs.map((line, idx) => (
-              <div key={`${line}-${idx}`} className="text-xs text-gray-300 font-mono">
+              <div key={`${line}-${idx}`} className="text-xs text-slate-700 font-mono">
                 {line}
               </div>
             ))}

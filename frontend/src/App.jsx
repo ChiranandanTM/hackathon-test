@@ -31,12 +31,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-guard-dark">
+    <div className="antigravity-theme min-h-screen bg-guard-dark">
       {showSplash && <SplashScreen onDismiss={() => setShowSplash(false)} />}
 
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg animate-slide-in ${
+          className={`ag-notification fixed top-4 right-4 z-50 px-4 py-3 rounded-lg text-sm font-medium shadow-lg animate-slide-in ${
             notification.type === "success"
               ? "bg-guard-safe/90 text-white border border-guard-safe/50"
               : notification.type === "error"
@@ -48,15 +48,15 @@ export default function App() {
         </div>
       )}
 
-      <header className="border-b border-guard-accent/20 bg-guard-card/60 backdrop-blur-md sticky top-0 z-40 shadow-lg shadow-guard-accent/10">
+      <header className="ag-lift border-b border-guard-accent/20 bg-guard-card/60 backdrop-blur-md sticky top-0 z-40 shadow-lg shadow-slate-200/70">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-guard-accent to-guard-purple flex items-center justify-center font-bold text-sm text-white shadow-lg shadow-guard-accent/50 animate-pulse-eth">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-guard-accent to-guard-purple flex items-center justify-center font-bold text-sm text-white shadow-lg shadow-sky-200/80 animate-pulse-eth">
               AG
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white text-glow-cyan">AgentGuard</h1>
-              <p className="text-xs text-guard-safe/70">AI-Powered Blockchain Security</p>
+              <h1 className="text-lg font-bold text-slate-900">AgentGuard</h1>
+              <p className="text-xs text-slate-500">AI-Powered Blockchain Security</p>
             </div>
           </div>
           <WalletConnect onConnect={setWallet} />
@@ -65,21 +65,21 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         <div className="text-center space-y-3 py-4 animate-fade-in">
-          <h2 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-guard-accent via-guard-safe to-guard-purple">
+          <h2 className="ag-hero-title text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-guard-accent via-guard-safe to-guard-purple">
             Protect Your Wallet from Malicious Transactions
           </h2>
-          <p className="text-gray-300 max-w-2xl mx-auto">
+          <p className="text-slate-600 max-w-2xl mx-auto">
             AgentGuard intercepts risky blockchain transactions, analyzes them with AI,
             and rewrites them into safer versions before they reach the chain.
           </p>
           {!wallet && (
-            <p className="text-sm text-guard-warning/80 max-w-xl mx-auto font-medium">
+            <p className="text-sm text-amber-700 max-w-xl mx-auto font-medium">
               No wallet connected. You can still run demo mode and view threat analysis.
             </p>
           )}
         </div>
 
-        <div className="flex gap-1 bg-guard-card border border-guard-accent/20 rounded-lg p-1 w-fit mx-auto backdrop-blur-sm flex-wrap justify-center">
+        <div className="ag-tab-shell flex gap-1 bg-guard-card border border-guard-accent/20 rounded-lg p-1 w-fit mx-auto backdrop-blur-sm flex-wrap justify-center">
           {[
             { id: "demo", label: "Demo Scenarios" },
             { id: "live", label: "Live Attack Demo" },
@@ -93,10 +93,10 @@ export default function App() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 whitespace-nowrap ${
+              className={`ag-tab px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 whitespace-nowrap ${
                 activeTab === tab.id
                   ? "bg-gradient-to-r from-guard-accent to-guard-purple text-white shadow-lg shadow-guard-accent/50"
-                  : "text-gray-400 hover:text-guard-accent/80"
+                  : "text-slate-500 hover:text-slate-900"
               }`}
             >
               {tab.label}
@@ -134,8 +134,8 @@ export default function App() {
         {activeTab === "audit" && <AuditLog />}
       </main>
 
-      <footer className="border-t border-guard-accent/20 mt-12 py-6 text-center text-sm text-gray-500">
-        <span className="text-guard-safe">+</span> AgentGuard - Ethereum Sepolia Testnet - Hackathon Demo
+      <footer className="border-t border-guard-accent/20 mt-12 py-6 text-center text-sm text-slate-500">
+        <span className="text-emerald-600">+</span> AgentGuard - Ethereum Sepolia Testnet - Hackathon Demo
       </footer>
     </div>
   );

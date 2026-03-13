@@ -6,6 +6,10 @@ function buildConfig(overrides) {
   return {
     mode: "onchain",
     simulationReason: "",
+    deployerAddress: "",
+    deployerBalanceEth: "0",
+    minRequiredBalanceEth: "0",
+    walletFundingEth: "0",
     rpcUrl: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
     chainId: 11155111,
     explorerBaseUrl: "https://sepolia.etherscan.io/tx/",
@@ -84,19 +88,49 @@ async function main() {
   }
 
   const provider = deployer.provider;
+  const deployerBalance = await provider.getBalance(deployer.address);
+  const walletFundingEth = process.env.DEMO_WALLET_FUNDING_ETH || "0.00035";
+  const deployGasReserveEth = process.env.DEMO_DEPLOY_GAS_RESERVE_ETH || "0.0015";
+  const fundingAmount = ethers.parseEther(walletFundingEth);
+  const deployGasReserve = ethers.parseEther(deployGasReserveEth);
+  const fundedWalletCount = 2n; // Alex + Sam need ETH to sign transactions. Attacker only receives tokens.
+  const minRequiredBalance = fundingAmount * fundedWalletCount + deployGasReserve;
+
   console.log("Deploying live demo with:", deployer.address);
   console.log("Network:", network.name);
+  console.log("Deployer balance (ETH):", ethers.formatEther(deployerBalance));
+  console.log("Wallet funding per signer (ETH):", walletFundingEth);
+  console.log("Minimum recommended deploy balance (ETH):", ethers.formatEther(minRequiredBalance));
 
   const alex = ethers.Wallet.createRandom();
   const sam = ethers.Wallet.createRandom();
   const attacker = ethers.Wallet.createRandom();
   const benignRecipient = ethers.Wallet.createRandom();
 
+  if (deployerBalance < minRequiredBalance) {
+    const cfg = buildConfig({
+      mode: "simulation",
+      simulationReason: "insufficient_funds",
+      deployerAddress: deployer.address,
+      deployerBalanceEth: ethers.formatEther(deployerBalance),
+      minRequiredBalanceEth: ethers.formatEther(minRequiredBalance),
+      walletFundingEth,
+      demoWallets: {
+        alex: { address: alex.address, privateKey: "" },
+        sam: { address: sam.address, privateKey: "" },
+        attacker: { address: attacker.address, privateKey: "" },
+        benignRecipient: benignRecipient.address,
+      },
+    });
+    const target = writeFrontendConfig(cfg);
+    console.log("Insufficient Sepolia funds for on-chain deployment. Switched to simulation config.");
+    console.log("Frontend config written:", target);
+    return;
+  }
+
   try {
-    const fundingAmount = ethers.parseEther("0.03");
     await (await deployer.sendTransaction({ to: alex.address, value: fundingAmount })).wait();
     await (await deployer.sendTransaction({ to: sam.address, value: fundingAmount })).wait();
-    await (await deployer.sendTransaction({ to: attacker.address, value: fundingAmount })).wait();
 
     await waitForEth(provider, alex.address);
     await waitForEth(provider, sam.address);
@@ -138,6 +172,10 @@ async function main() {
 
     const cfg = buildConfig({
       mode: "onchain",
+      deployerAddress: deployer.address,
+      deployerBalanceEth: ethers.formatEther(deployerBalance),
+      minRequiredBalanceEth: ethers.formatEther(minRequiredBalance),
+      walletFundingEth,
       contracts: {
         mockUsdc: mockUsdcAddress,
         attackSimulator: attackSimulatorAddress,
@@ -168,6 +206,10 @@ async function main() {
       const cfg = buildConfig({
         mode: "simulation",
         simulationReason: "insufficient_funds",
+        deployerAddress: deployer.address,
+        deployerBalanceEth: ethers.formatEther(deployerBalance),
+        minRequiredBalanceEth: ethers.formatEther(minRequiredBalance),
+        walletFundingEth,
         demoWallets: {
           alex: { address: alex.address, privateKey: "" },
           sam: { address: sam.address, privateKey: "" },

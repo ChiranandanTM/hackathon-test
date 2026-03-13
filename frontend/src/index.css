@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,9 +12,9 @@
 
 body {
   margin: 0;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  background: #000000;
-  color: #f3f4f6;
+  font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: #f4f7fb;
+  color: #0f172a;
   overflow-x: hidden;
 }
 
@@ -27,18 +29,267 @@ html {
 }
 
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: #eef2f8;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #00d9ff, #8b5cf6);
+  background: linear-gradient(180deg, #3b82f6, #0ea5e9);
   border-radius: 10px;
-  border: 2px solid #0f1425;
+  border: 2px solid #eef2f8;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #00ff88, #00d9ff);
-  border: 2px solid #0a0a0a;
+  background: linear-gradient(180deg, #2563eb, #0ea5e9);
+  border: 2px solid #e2e8f0;
+}
+
+/* Global white anti-gravity theme applied at app root */
+.antigravity-theme {
+  --ag-bg: #f6f9ff;
+  --ag-panel: rgba(255, 255, 255, 0.84);
+  --ag-border: rgba(99, 102, 241, 0.22);
+  --ag-text: #0f172a;
+  --ag-text-soft: #475569;
+  --ag-accent: #3b82f6;
+  background:
+    radial-gradient(1200px 600px at 90% -20%, rgba(56, 189, 248, 0.25), rgba(56, 189, 248, 0)),
+    radial-gradient(900px 500px at -15% 120%, rgba(244, 114, 182, 0.2), rgba(244, 114, 182, 0)),
+    radial-gradient(700px 420px at 50% 30%, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0)),
+    linear-gradient(180deg, #f8fbff 0%, var(--ag-bg) 100%);
+  color: var(--ag-text);
+}
+
+.antigravity-theme::before,
+.antigravity-theme::after {
+  content: "";
+  position: fixed;
+  width: 34rem;
+  height: 34rem;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(48px);
+  opacity: 0.34;
+  animation: ag-float-orb 12s ease-in-out infinite alternate;
+}
+
+.antigravity-theme::before {
+  top: -11rem;
+  right: -10rem;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.45), rgba(14, 165, 233, 0));
+}
+
+.antigravity-theme::after {
+  bottom: -14rem;
+  left: -12rem;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.4), rgba(244, 114, 182, 0));
+  animation-delay: 1.5s;
+}
+
+.antigravity-theme > * {
+  position: relative;
+  z-index: 1;
+}
+
+.antigravity-theme .bg-guard-dark {
+  background: transparent !important;
+}
+
+.antigravity-theme .bg-guard-card,
+.antigravity-theme .glass,
+.antigravity-theme [class*="bg-black/"] {
+  background: var(--ag-panel) !important;
+  border: 1px solid var(--ag-border) !important;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.antigravity-theme .text-gray-200,
+.antigravity-theme .text-gray-300,
+.antigravity-theme .text-gray-400,
+.antigravity-theme .text-gray-500,
+.antigravity-theme .text-gray-600,
+.antigravity-theme .text-slate-400,
+.antigravity-theme .text-slate-500,
+.antigravity-theme .text-slate-600 {
+  color: #0f172a !important;
+}
+
+/* Preserve explicit white text when components intentionally use dark or gradient surfaces. */
+.antigravity-theme button.text-white,
+.antigravity-theme a.text-white,
+.antigravity-theme .text-white.bg-gradient-to-r,
+.antigravity-theme .text-white.bg-gradient-to-br {
+  color: #ffffff !important;
+}
+
+/* Keep text readable on intentionally dark blocks (code/pre/address pills). */
+.antigravity-theme [class*="bg-black"] .text-gray-100,
+.antigravity-theme [class*="bg-black"] .text-gray-200,
+.antigravity-theme [class*="bg-black"] .text-gray-300,
+.antigravity-theme [class*="bg-black"] .text-gray-400,
+.antigravity-theme [class*="bg-black"].text-gray-100,
+.antigravity-theme [class*="bg-black"].text-gray-200,
+.antigravity-theme [class*="bg-black"].text-gray-300,
+.antigravity-theme [class*="bg-black"].text-gray-400,
+.antigravity-theme [class*="bg-guard-dark"] .text-gray-100,
+.antigravity-theme [class*="bg-guard-dark"] .text-gray-200,
+.antigravity-theme [class*="bg-guard-dark"] .text-gray-300,
+.antigravity-theme [class*="bg-guard-dark"] .text-gray-400,
+.antigravity-theme [class*="bg-guard-dark"] .text-slate-500,
+.antigravity-theme [class*="bg-guard-dark"] .text-slate-600,
+.antigravity-theme [class*="bg-black"] .text-slate-500,
+.antigravity-theme [class*="bg-black"] .text-slate-600,
+.antigravity-theme [class*="bg-black"].text-slate-500,
+.antigravity-theme [class*="bg-black"].text-slate-600,
+.antigravity-theme [class*="bg-guard-dark"].text-gray-100,
+.antigravity-theme [class*="bg-guard-dark"].text-gray-200,
+.antigravity-theme [class*="bg-guard-dark"].text-gray-300,
+.antigravity-theme [class*="bg-guard-dark"].text-gray-400,
+.antigravity-theme [class*="bg-guard-dark"].text-slate-500,
+.antigravity-theme [class*="bg-guard-dark"].text-slate-600 {
+  color: #e5e7eb !important;
+}
+
+.antigravity-theme pre[class*="bg-black"],
+.antigravity-theme code[class*="bg-black"],
+.antigravity-theme pre[class*="bg-guard-dark"],
+.antigravity-theme code[class*="bg-guard-dark"] {
+  color: #e5e7eb !important;
+}
+
+.antigravity-theme [class*="bg-black"] .text-white,
+.antigravity-theme [class*="bg-guard-dark"] .text-white,
+.antigravity-theme .text-white.bg-black,
+.antigravity-theme .text-white.bg-guard-dark {
+  color: #f8fafc !important;
+}
+
+/* Keep intentional white text for buttons/badges and gradient surfaces. */
+.antigravity-theme button.text-white,
+.antigravity-theme a.text-white,
+.antigravity-theme .text-white.bg-gradient-to-r,
+.antigravity-theme .text-white.bg-gradient-to-br,
+.antigravity-theme .text-white.bg-guard-accent\/90,
+.antigravity-theme .text-white.bg-guard-danger\/90,
+.antigravity-theme .text-white.bg-guard-safe\/90 {
+  color: #ffffff !important;
+}
+
+/* Fallback for dark containers with no explicit text color utility class. */
+.antigravity-theme [class*="bg-black"] {
+  color: #e5e7eb;
+}
+
+.antigravity-theme [class*="bg-guard-dark"] {
+  color: #e5e7eb;
+}
+
+.antigravity-theme .border-guard-accent\/20,
+.antigravity-theme .border-guard-accent\/30,
+.antigravity-theme .border-guard-warning\/30,
+.antigravity-theme .border-guard-warning\/40,
+.antigravity-theme .border-guard-safe\/40,
+.antigravity-theme .border-guard-danger\/40,
+.antigravity-theme .border-guard-accent\/50 {
+  border-color: var(--ag-border) !important;
+}
+
+.antigravity-theme .from-guard-accent,
+.antigravity-theme .to-guard-purple,
+.antigravity-theme .from-guard-warning,
+.antigravity-theme .to-guard-danger {
+  --tw-gradient-from: #4f46e5 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(79 70 229 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #06b6d4 var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+
+.antigravity-theme button,
+.antigravity-theme a,
+.antigravity-theme .card-interactive,
+.antigravity-theme .rounded-xl,
+.antigravity-theme .rounded-2xl {
+  transition: all 0.25s ease;
+}
+
+.antigravity-theme .rounded-xl:hover,
+.antigravity-theme .rounded-2xl:hover,
+.antigravity-theme .card-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 48px rgba(56, 189, 248, 0.2);
+}
+
+.antigravity-theme .ag-hero-title {
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  letter-spacing: -0.03em;
+  background-image: linear-gradient(105deg, #4338ca, #0891b2 42%, #ec4899 82%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: ag-hue-pan 7s ease-in-out infinite;
+}
+
+.antigravity-theme .ag-tab-shell {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  box-shadow: 0 14px 38px rgba(79, 70, 229, 0.13);
+  border-radius: 1rem;
+}
+
+.antigravity-theme .ag-tab {
+  position: relative;
+  border-radius: 0.75rem;
+}
+
+.antigravity-theme .ag-tab::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: 4px;
+  height: 2px;
+  opacity: 0;
+  transform: scaleX(0.5);
+  background: linear-gradient(90deg, #4f46e5, #06b6d4, #ec4899);
+  transition: all 0.26s ease;
+}
+
+.antigravity-theme .ag-tab:hover::after {
+  opacity: 0.85;
+  transform: scaleX(1);
+}
+
+.antigravity-theme .ag-notification {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 38px rgba(30, 41, 59, 0.18);
+}
+
+.antigravity-theme .ag-lift {
+  transition: transform 0.26s ease, box-shadow 0.26s ease;
+}
+
+.antigravity-theme .ag-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px rgba(79, 70, 229, 0.18);
+}
+
+@keyframes ag-float-orb {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-18px, 16px, 0) scale(1.07);
+  }
+}
+
+@keyframes ag-hue-pan {
+  0%,
+  100% {
+    filter: hue-rotate(0deg) saturate(1.05);
+  }
+  50% {
+    filter: hue-rotate(16deg) saturate(1.2);
+  }
 }
 
 /* Global Animations */
