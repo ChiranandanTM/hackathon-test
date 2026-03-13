@@ -179,7 +179,15 @@ function ScenarioButton({ scenario, isLoading, onClick }) {
   );
 }
 
-export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
+export default function DemoScenarios({
+  wallet,
+  onResult,
+  onThreatDetected,
+  onAttackStarted,
+  actorRole = "user",
+  pendingUserTx = null,
+  onClearTargetTx,
+}) {
   // FIXED: Added loading state tracking per scenario
   const [loadingId, setLoadingId] = useState(null);
   const [errors, setErrors] = useState({});
@@ -237,17 +245,40 @@ export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
   }
 
   async function runLiveAttack() {
+    if (actorRole !== "attacker") {
+      setLiveError("Only attacker terminal can launch live attacks.");
+      return;
+    }
+    if (!pendingUserTx?.to || !pendingUserTx?.amount) {
+      setLiveError("No user transfer target detected yet. Wait for user to send money first.");
+      return;
+    }
+
     const payload = LIVE_ATTACK_PAYLOADS[liveAttackIndex % LIVE_ATTACK_PAYLOADS.length];
+    const attackPayload = {
+      ...payload,
+      victim_tx_id: pendingUserTx.tx_id || null,
+      victim_to: pendingUserTx.to,
+      victim_amount: pendingUserTx.amount,
+      victim_token: pendingUserTx.token || "TOKEN",
+      user_intent: `Exploit user transfer ${pendingUserTx.amount} ${pendingUserTx.token || "TOKEN"}`,
+      initiated_by: "attacker",
+    };
     setLiveAttackLoading(true);
     setLiveError("");
     setLiveStage("ingress");
+    pushFeed(
+      `Target locked: ${pendingUserTx.amount} ${pendingUserTx.token || "TOKEN"} -> ${String(
+        pendingUserTx.to || ""
+      ).slice(0, 12)}...`
+    );
     pushFeed(`Inbound suspicious payload from ${currentSource}`);
     await wait(180);
     setLiveStage("analysis");
     pushFeed("MITM model parsing calldata and intent fingerprints");
 
     try {
-      const data = await interceptTransaction(payload);
+      const data = await interceptTransaction(attackPayload);
       setLiveAttackResult(data);
       onResult({ scenario: { id: "live-attack", name: "Live Attack" }, data });
 
@@ -258,6 +289,21 @@ export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
       if (riskLevel === "critical" || riskLevel === "high") {
         setLiveStage("blocked");
         pushFeed(`Threat detected (${riskLevel.toUpperCase()} / ${riskScore}) -> policy: BLOCK_AND_REWRITE`);
+
+        if (typeof onAttackStarted === "function") {
+          onAttackStarted({
+            attackType: attackPayload.attack_type,
+            txId: data?.tx_id,
+            riskLevel,
+            riskScore,
+            whyRisky: why,
+            safeProposal:
+              data?.agentguard_proposes ||
+              data?.decision_context?.agentguard_proposes ||
+              "Use the safe rewritten transaction.",
+          });
+        }
+
         if (typeof onThreatDetected === "function") {
           onThreatDetected({
             txId: data?.tx_id,
@@ -273,6 +319,9 @@ export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
       }
 
       setLiveAttackIndex((prev) => prev + 1);
+      if (typeof onClearTargetTx === "function") {
+        onClearTargetTx();
+      }
     } catch (err) {
       const msg = err.message || "Live attack request failed";
       setLiveError(msg);
@@ -333,6 +382,27 @@ export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
       </div>
 
       <div className="bg-guard-card border border-guard-accent/30 rounded-xl p-4 space-y-3">
+        {actorRole === "attacker" && (
+          <div className="rounded-lg border border-guard-danger/30 bg-guard-danger/10 p-3 text-sm">
+            <div className="text-guard-danger font-semibold">User Target Transaction</div>
+            {pendingUserTx?.to ? (
+              <div className="mt-2 space-y-1 text-gray-200">
+                <div>
+                  <span className="text-gray-400">tx_id:</span> {pendingUserTx.tx_id || "n/a"}
+                </div>
+                <div>
+                  <span className="text-gray-400">to:</span> {pendingUserTx.to}
+                </div>
+                <div>
+                  <span className="text-gray-400">amount:</span> {pendingUserTx.amount} {pendingUserTx.token || "TOKEN"}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 text-gray-400">Waiting for user terminal to send money.</div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="px-2 py-1 rounded border border-guard-danger/40 text-guard-danger bg-guard-danger/10">
             ATTACK SOURCE: {currentSource}
@@ -345,13 +415,19 @@ export default function DemoScenarios({ wallet, onResult, onThreatDetected }) {
           </span>
         </div>
 
-        <button
-          onClick={runLiveAttack}
-          disabled={liveAttackLoading}
-          className="px-4 py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-guard-warning to-guard-danger border border-guard-warning/40 hover:opacity-95 disabled:opacity-60"
-        >
-          {liveAttackLoading ? "Sending Live Attack..." : "⚡ Live Attack"}
-        </button>
+        {actorRole === "attacker" ? (
+          <button
+            onClick={runLiveAttack}
+            disabled={liveAttackLoading || !pendingUserTx?.to}
+            className="px-4 py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-guard-warning to-guard-danger border border-guard-warning/40 hover:opacity-95 disabled:opacity-60"
+          >
+            {liveAttackLoading ? "Sending Live Attack..." : "⚡ Live Attack"}
+          </button>
+        ) : (
+          <div className="text-xs text-gray-400">
+            Attack launch controls are available only in attacker terminal.
+          </div>
+        )}
 
         {liveError && (
           <div className="p-3 bg-guard-danger/10 border border-guard-danger/30 rounded-lg text-guard-danger text-sm">

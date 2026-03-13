@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
-import { approveTransaction, rejectTransaction } from "./utils/api";
+import { addDoc, collection, limit, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { approveTransaction, interceptTransaction, rejectTransaction } from "./utils/api";
 import WalletConnect from "./components/WalletConnect";
 import DemoScenarios from "./components/DemoScenarios";
 import TransactionComparison from "./components/TransactionComparison";
@@ -14,6 +14,7 @@ import RequestlyVisualizer from "./components/RequestlyVisualizer";
 import { db } from "./firebase";
 
 export default function App() {
+  const [role, setRole] = useState(() => localStorage.getItem("agentguard_role") || "user");
   const [wallet, setWallet] = useState(null);
   const [result, setResult] = useState(null);
   const [activeTab, setActiveTab] = useState("demo");
@@ -21,9 +22,34 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [threatQueue, setThreatQueue] = useState([]);
   const [threatDecisionLoading, setThreatDecisionLoading] = useState(false);
+  const [manualThreatPrompt, setManualThreatPrompt] = useState(null);
+  const [pendingUserTx, setPendingUserTx] = useState(null);
+  const [sendTxLoading, setSendTxLoading] = useState(false);
+  const [txDraft, setTxDraft] = useState({
+    to: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    amount: "0.35",
+    token: "ETH",
+    user_intent: "Send money to friend",
+  });
   const hasLoadedThreatStream = useRef(false);
   const lastThreatId = useRef("");
   const seenThreatIds = useRef(new Set());
+  const seenSimulationEventIds = useRef(new Set());
+  const localClientId = useRef(
+    (() => {
+      const existing = localStorage.getItem("agentguard_client_id");
+      if (existing) {
+        return existing;
+      }
+      const created = `client_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem("agentguard_client_id", created);
+      return created;
+    })()
+  );
+
+  useEffect(() => {
+    localStorage.setItem("agentguard_role", role);
+  }, [role]);
 
   function showNotification(msg, type = "info") {
     setNotification({ msg, type });
@@ -52,6 +78,75 @@ export default function App() {
     );
   }
 
+  async function emitSimulationEvent(eventType, payload = {}) {
+    try {
+      await addDoc(collection(db, "simulation_events"), {
+        type: eventType,
+        source_role: role,
+        source_client_id: localClientId.current,
+        payload,
+        created_at: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Failed to emit simulation event:", error);
+    }
+  }
+
+  async function handleUserTransactionSignal() {
+    const amountNumber = Number(txDraft.amount);
+    if (!txDraft.to || !Number.isFinite(amountNumber) || amountNumber <= 0) {
+      showNotification("Enter a valid recipient and amount before sending.", "error");
+      return;
+    }
+
+    const txPayload = {
+      tx_type: "transfer",
+      from_address: wallet?.address || "0xUSER_SIMULATED",
+      to: txDraft.to,
+      amount: String(txDraft.amount),
+      token: txDraft.token || "ETH",
+      initiated_by: "user",
+      attack_simulation: false,
+      user_intent: txDraft.user_intent || "Send money",
+      wallet_balance: 5000,
+    };
+
+    setSendTxLoading(true);
+    try {
+      // Create a real transaction intent in backend before attacker reacts.
+      const response = await interceptTransaction(txPayload);
+      const txId = response?.tx_id || `local_${Date.now()}`;
+      const payload = {
+        tx_id: txId,
+        from: txPayload.from_address,
+        to: txPayload.to,
+        amount: txPayload.amount,
+        token: txPayload.token,
+        user_intent: txPayload.user_intent,
+      };
+
+      setPendingUserTx(payload);
+      await emitSimulationEvent("user_transaction_started", payload);
+      showNotification("Transaction sent. Attacker terminal can now target this transfer.", "success");
+    } catch (error) {
+      showNotification(`Transaction failed: ${error.message || "Unknown error"}`, "error");
+    } finally {
+      setSendTxLoading(false);
+    }
+  }
+
+  async function handleAttackStarted(attackInfo) {
+    await emitSimulationEvent("attacker_attack_started", {
+      attack_type: attackInfo?.attackType || "unknown",
+      stage: "attack_started",
+      tx_id: attackInfo?.txId || null,
+      risk_level: attackInfo?.riskLevel || "high",
+      risk_score: attackInfo?.riskScore ?? "N/A",
+      why_risky: attackInfo?.whyRisky || "This transaction looks dangerous.",
+      agentguard_proposes: attackInfo?.safeProposal || "Use the safe rewritten transaction.",
+    });
+  }
+
   function _isPendingThreat(data) {
     const decision = data?.decision;
     const status = String(data?.status || "pending").toLowerCase();
@@ -69,12 +164,15 @@ export default function App() {
     try {
       if (action === "approve") {
         await approveTransaction(txId);
-        showNotification(`Threat ${txId} approved as safe rewrite`, "success");
+        showNotification("Approved the safe version. Your funds stay protected.", "success");
       } else {
         await rejectTransaction(txId, "User rejected after realtime threat alert");
-        showNotification(`Threat ${txId} rejected and blocked`, "error");
+        showNotification("Blocked the risky transaction.", "error");
       }
       setThreatQueue((prev) => prev.filter((item) => item.tx_id !== txId));
+      if (manualThreatPrompt?.tx_id === txId) {
+        setManualThreatPrompt(null);
+      }
     } catch (error) {
       showNotification(`Decision failed: ${error.message || "Unknown error"}`, "error");
     } finally {
@@ -104,7 +202,7 @@ export default function App() {
       }
       lastThreatId.current = doc.id;
 
-      if (riskLevel === "critical" || riskLevel === "high") {
+      if ((riskLevel === "critical" || riskLevel === "high") && role === "user") {
         showNotification(
           `Realtime alert: ${riskLevel.toUpperCase()} threat intercepted (${data.attack_type || "unknown"})`,
           "error"
@@ -113,7 +211,65 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [role]);
+
+  useEffect(() => {
+    const simulationQuery = query(
+      collection(db, "simulation_events"),
+      orderBy("created_at", "desc"),
+      limit(40)
+    );
+
+    const unsubscribe = onSnapshot(simulationQuery, (snapshot) => {
+      for (const doc of snapshot.docs) {
+        if (seenSimulationEventIds.current.has(doc.id)) {
+          continue;
+        }
+        seenSimulationEventIds.current.add(doc.id);
+
+        const evt = doc.data() || {};
+        if (evt.source_client_id === localClientId.current) {
+          continue;
+        }
+
+        if (role === "attacker" && evt.type === "user_transaction_started") {
+          const tx = evt.payload || {};
+          setPendingUserTx(tx);
+          setActiveTab("demo");
+          showNotification(
+            `User sent ${tx.amount || "?"} ${tx.token || "TOKEN"} to ${String(tx.to || "unknown").slice(0, 10)}...`,
+            "error"
+          );
+        }
+
+        if (role === "user" && evt.type === "attacker_attack_started") {
+          setActiveTab("demo");
+          const attack = evt.payload || {};
+          const englishSummary = `Someone tried to tamper with your transfer. Review this alert and choose Approve Safe Rewrite or Reject.`;
+          showNotification(englishSummary, "error");
+
+          if (attack.tx_id) {
+            setManualThreatPrompt({
+              tx_id: attack.tx_id,
+              attack_type: attack.attack_type || "tampering",
+              risk_level: attack.risk_level || "high",
+              risk_score: attack.risk_score ?? "N/A",
+              why_risky:
+                attack.why_risky ||
+                "This transfer may send money to a malicious destination or allow token theft.",
+              ai_tried: "Protect your transfer before confirmation.",
+              agentguard_proposes:
+                attack.agentguard_proposes ||
+                "Approve the safe rewrite to continue securely, or reject to block this request.",
+              initiated_by: "attacker",
+            });
+          }
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [role]);
 
   useEffect(() => {
     const inboxQuery = query(collection(db, "intercepts"), orderBy("created_at", "desc"), limit(30));
@@ -137,6 +293,10 @@ export default function App() {
 
       setThreatQueue(pendingThreats);
 
+      if (manualThreatPrompt?.tx_id && pendingThreats.some((item) => item.tx_id === manualThreatPrompt.tx_id)) {
+        setManualThreatPrompt(null);
+      }
+
       for (const threat of pendingThreats) {
         if (!seenThreatIds.current.has(threat.tx_id)) {
           seenThreatIds.current.add(threat.tx_id);
@@ -151,7 +311,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const activeThreat = threatQueue[0] || null;
+  const activeThreat = threatQueue[0] || manualThreatPrompt || null;
 
   return (
     <div className="min-h-screen bg-guard-dark">
@@ -173,7 +333,7 @@ export default function App() {
         </div>
       )}
 
-      {activeThreat && (
+      {activeThreat && role === "user" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl rounded-xl border border-guard-danger/40 bg-guard-card p-5 space-y-4 shadow-2xl shadow-guard-danger/20">
             <div className="flex items-center justify-between gap-3">
@@ -203,7 +363,7 @@ export default function App() {
             </div>
 
             <div className="rounded-lg border border-guard-danger/30 bg-guard-danger/10 p-3 text-sm text-gray-200">
-              <span className="text-guard-danger font-semibold">Attack Summary:</span> {activeThreat.why_risky}
+              <span className="text-guard-danger font-semibold">Simple Summary:</span> {activeThreat.why_risky}
             </div>
 
             <div className="rounded-lg border border-guard-safe/30 bg-guard-safe/10 p-3 text-sm text-gray-200">
@@ -244,7 +404,17 @@ export default function App() {
               </p>
             </div>
           </div>
-          <WalletConnect onConnect={setWallet} />
+          <div className="flex items-center gap-3">
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="bg-guard-card border border-guard-accent/30 text-gray-200 text-xs rounded px-2 py-1"
+            >
+              <option value="user">User Terminal</option>
+              <option value="attacker">Attacker Terminal</option>
+            </select>
+            <WalletConnect onConnect={setWallet} />
+          </div>
         </div>
       </header>
 
@@ -265,6 +435,52 @@ export default function App() {
               ⚡ No wallet connected — running in demo mode. You can simulate attacks and view analysis without MetaMask.
             </p>
           )}
+
+          <div className="flex justify-center pt-1">
+            {role === "user" ? (
+              <div className="w-full max-w-3xl rounded-lg border border-guard-accent/30 bg-guard-card/50 p-3">
+                <div className="grid sm:grid-cols-4 gap-2">
+                  <input
+                    value={txDraft.to}
+                    onChange={(e) => setTxDraft((prev) => ({ ...prev, to: e.target.value }))}
+                    placeholder="Recipient address"
+                    className="sm:col-span-2 px-3 py-2 rounded border border-guard-accent/30 bg-black/40 text-gray-200 text-sm"
+                  />
+                  <input
+                    value={txDraft.amount}
+                    onChange={(e) => setTxDraft((prev) => ({ ...prev, amount: e.target.value }))}
+                    placeholder="Amount"
+                    className="px-3 py-2 rounded border border-guard-accent/30 bg-black/40 text-gray-200 text-sm"
+                  />
+                  <input
+                    value={txDraft.token}
+                    onChange={(e) => setTxDraft((prev) => ({ ...prev, token: e.target.value.toUpperCase() }))}
+                    placeholder="Token"
+                    className="px-3 py-2 rounded border border-guard-accent/30 bg-black/40 text-gray-200 text-sm"
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                  <input
+                    value={txDraft.user_intent}
+                    onChange={(e) => setTxDraft((prev) => ({ ...prev, user_intent: e.target.value }))}
+                    placeholder="Intent"
+                    className="flex-1 min-w-[220px] px-3 py-2 rounded border border-guard-accent/30 bg-black/40 text-gray-200 text-sm"
+                  />
+                  <button
+                    onClick={handleUserTransactionSignal}
+                    disabled={sendTxLoading}
+                    className="px-4 py-2 rounded-lg border border-guard-accent/50 text-guard-accent bg-guard-accent/10 hover:bg-guard-accent/20 text-sm font-semibold disabled:opacity-60"
+                  >
+                    {sendTxLoading ? "Sending..." : "Send Money"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-guard-danger bg-guard-danger/10 border border-guard-danger/30 rounded px-3 py-2">
+                Attacker terminal active: wait for user transaction notification, then launch attack.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -295,7 +511,15 @@ export default function App() {
         {/* Tab Content */}
         {activeTab === "demo" && (
           <div className="space-y-8 animate-fade-in">
-            <DemoScenarios wallet={wallet} onResult={handleResult} onThreatDetected={handleThreatDetected} />
+            <DemoScenarios
+              wallet={wallet}
+              onResult={handleResult}
+              onThreatDetected={handleThreatDetected}
+              onAttackStarted={handleAttackStarted}
+              actorRole={role}
+              pendingUserTx={pendingUserTx}
+              onClearTargetTx={() => setPendingUserTx(null)}
+            />
             <TransactionComparison result={result} onAction={(action) => {
               showNotification(
                 `Transaction ${action.action}: ${action.tx_id}`,
