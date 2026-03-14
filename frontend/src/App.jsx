@@ -321,9 +321,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Prefer manual prompt (attacker event) because it is the freshest user-facing alert.
-  const activeThreat = manualThreatPrompt || threatQueue[0] || null;
-
   return (
     <div className="min-h-screen bg-guard-dark">
       {/* Splash Screen */}
@@ -344,71 +341,6 @@ export default function App() {
           }`}
         >
           {notification.msg}
-        </div>
-      )}
-
-      {activeThreat && role === "user" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl rounded-xl border border-guard-danger/40 bg-guard-card p-5 space-y-4 shadow-2xl shadow-guard-danger/20">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-bold text-guard-danger">Realtime Threat Detected</h3>
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 rounded border border-guard-warning/40 text-guard-warning bg-guard-warning/10">
-                  LIVE MITM ALERT
-                </span>
-                <button
-                  onClick={() => dismissThreatPopup(activeThreat?.tx_id)}
-                  className="text-xs px-2 py-1 rounded border border-gray-500/40 text-gray-300 hover:bg-white/5"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
-                <div className="text-gray-400 text-xs">tx_id</div>
-                <div className="text-gray-200 font-mono break-all">{activeThreat.tx_id}</div>
-              </div>
-              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
-                <div className="text-gray-400 text-xs">attack_type</div>
-                <div className="text-guard-danger font-semibold">{String(activeThreat.attack_type).toUpperCase()}</div>
-              </div>
-              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
-                <div className="text-gray-400 text-xs">risk_level</div>
-                <div className="text-guard-warning font-semibold">{String(activeThreat.risk_level).toUpperCase()}</div>
-              </div>
-              <div className="rounded-lg border border-guard-accent/20 bg-black/30 p-3">
-                <div className="text-gray-400 text-xs">risk_score</div>
-                <div className="text-guard-warning font-semibold">{String(activeThreat.risk_score)}</div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-guard-danger/30 bg-guard-danger/10 p-3 text-sm text-gray-200">
-              <span className="text-guard-danger font-semibold">Simple Summary:</span> {activeThreat.why_risky}
-            </div>
-
-            <div className="rounded-lg border border-guard-safe/30 bg-guard-safe/10 p-3 text-sm text-gray-200">
-              <span className="text-guard-safe font-semibold">AgentGuard Proposes:</span> {activeThreat.agentguard_proposes}
-            </div>
-
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={() => handleRealtimeDecision("approve", activeThreat.tx_id)}
-                disabled={threatDecisionLoading}
-                className="px-4 py-2 rounded-lg border border-guard-safe/40 text-guard-safe hover:bg-guard-safe/10 disabled:opacity-60"
-              >
-                ✅ Accept Safe Rewrite
-              </button>
-              <button
-                onClick={() => handleRealtimeDecision("reject", activeThreat.tx_id)}
-                disabled={threatDecisionLoading}
-                className="px-4 py-2 rounded-lg border border-guard-danger/40 text-guard-danger hover:bg-guard-danger/10 disabled:opacity-60"
-              >
-                ❌ Reject & Block
-              </button>
-            </div>
-          </div>
         </div>
       )}
 

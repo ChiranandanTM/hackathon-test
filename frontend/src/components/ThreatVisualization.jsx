@@ -283,6 +283,14 @@ function CodeDiff({ originalCode, safeCode }) {
 }
 
 export default function ThreatVisualization({ result }) {
+  const resolvedRiskScoreRaw =
+    result?.data?.risk_report?.risk_score ??
+    result?.data?.risk_score ??
+    result?.risk_report?.risk_score ??
+    result?.risk_score ??
+    0;
+  const resolvedRiskScore = Number(resolvedRiskScoreRaw) || 0;
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
@@ -302,7 +310,7 @@ export default function ThreatVisualization({ result }) {
         {/* Center: Risk Gauge */}
         <div className="card-glow bg-guard-card border border-guard-accent/20 rounded-xl p-6 flex flex-col items-center">
           <h3 className="text-sm font-semibold text-guard-accent mb-4">Risk Analysis</h3>
-          <RiskGauge score={result?.data?.risk_report?.risk_score || 0} />
+          <RiskGauge score={resolvedRiskScore} />
         </div>
 
         {/* Right: Transaction Feed */}

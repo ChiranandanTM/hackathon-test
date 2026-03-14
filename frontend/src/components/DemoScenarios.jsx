@@ -373,27 +373,16 @@ export default function DemoScenarios({
       <div>
         <h2 className="text-2xl font-bold text-glow-cyan">⚔️ Demo Attack Scenarios</h2>
         <p className="text-gray-300 text-sm mt-2">
-          Simulate common blockchain attacks to see AgentGuard in action.
           {!wallet && (
             <span className="block mt-1 text-guard-warning font-medium">
-              🎮 Running in demo mode — no wallet required. Connect MetaMask for on-chain execution.
             </span>
           )}
         </p>
       </div>
 
       <div className="bg-guard-card border border-guard-accent/30 rounded-xl p-4 space-y-3">
-        {actorRole === "attacker" ? (
-          <button
-            onClick={runLiveAttack}
-            disabled={liveAttackLoading || !pendingUserTx?.to}
-            className="px-4 py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-guard-warning to-guard-danger border border-guard-warning/40 hover:opacity-95 disabled:opacity-60"
-          >
-            {liveAttackLoading ? "Launching Attack..." : "Launch Attack"}
-          </button>
-        ) : (
+        {actorRole !== "attacker" && (
           <div className="text-xs text-gray-400">
-            Attack launch controls are available only in attacker terminal.
           </div>
         )}
 
